@@ -185,8 +185,6 @@ Response `201`:
     "firstName": "Jane",
     "lastName": "Doe",
     "email": "jane@example.com",
-    "password": "password123",
-    "confirmPassword": "password123",
     "role": "bus"
   }
 
@@ -215,8 +213,6 @@ Response `200`:
     "firstName": "Jane",
     "lastName": "Doe",
     "email": "bus@email.com"
-    "password": "password123",
-    "confirmPassword": "password123",
     "role": "bus"
   }
 
@@ -287,14 +283,13 @@ Response `200`:
     "message": "Success",
     "data": {
         "id": 1,
-        "routeNumber": "100",
-        "routeName": "Panadura - Pettah",
+        "routeNumber": "102",
+        "routeName": "Moratuwa - Pettah",
         "routeType": "Express",
-        "origin": "Panadura",
+        "origin": "Moratuwa",
         "destination": "Pettah",
-        "distance": 25,
-        "duration": 180,
-        "isActive": true,
+        "distance": 15,
+        "duration": 45,
         "buses": [
             { "id": 5, 
             "busNumber": "NB-001", 
@@ -306,7 +301,25 @@ Response `200`:
             "licensePlate": "WP-NA-5678", 
             "status": "Active" 
             }
-        ]
+        ],
+        "stops": [
+      {
+        "stopId": 1,
+        "stopSequence": 1,
+        "timeFromStart": 0
+      },
+      {
+        "stopId": 5,
+        "stopSequence": 2,
+        "timeFromStart": 20
+      },
+      {
+        "stopId": 2,
+        "stopSequence": 3,
+        "timeFromStart": 45
+      }
+    ],
+        "isActive": true
     }
 }
 ```
@@ -323,7 +336,24 @@ Body:
   "origin": "Moratuwa",
   "destination": "Pettah",
   "distance": 15,
-  "duration": 45
+  "duration": 45,
+  "stops": [
+    {
+      "stopId": 1,
+      "stopSequence": 1,
+      "timeFromStart": 0
+    },
+    {
+      "stopId": 5,
+      "stopSequence": 2,
+      "timeFromStart": 20
+    },
+    {
+      "stopId": 2,
+      "stopSequence": 3,
+      "timeFromStart": 45
+    }
+  ]
 }
 ```
 
@@ -341,6 +371,26 @@ Response `201`:
     "destination": "Pettah",
     "distance": 15,
     "duration": 45,
+    "stops": [
+    {
+      "stopId": 001,
+      "stopName": "Rathmalana",
+      "stopSequence": 1,
+      "timeFromStart": 0
+    },
+    {
+      "stopId": 005,
+      "stopSequence": 2,
+      "stopName": "Dehiwala",
+      "timeFromStart": 20
+    },
+    {
+      "stopId": 002,
+      "stopSequence": 3,
+      "stopName": "Pettah",
+      "timeFromStart": 45
+    }
+    ],
     "isActive": true
   }
 }
@@ -377,7 +427,7 @@ Response `200`:
 }
 ```
 
-### 3.4 SELETE /routes/:id
+### 3.5 DELETE /routes/:id
 Description: Deactivates a route if no buses are assigned.
 
 Response `200`:
@@ -400,10 +450,95 @@ Response `400`:
 
 ---
 
-## 4. Bus Endpoints
+## 4. Stop Endpoints
+
+
+### 4.1 POST /stops
+Description: Create a stop
+Access: Admin
+Body:
+```json
+{
+  "name": "Colombo Fort",
+  "latitude": 6.9344,
+  "longitude": 79.8428
+}
+```
+Response `201`:
+```json
+{
+  "success": true,
+  "message": "Stop created successfully",
+  "data": {
+    "id": 1,
+    "name": "Colombo Fort",
+    "latitude": 6.9344,
+    "longitude": 79.8428
+  }
+}
+```
+
+### 4.2 Get All Stops
+Description: Get a list of stops.
+Access:Public
+Response `200`:
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "id": 1,
+      "name": "Colombo Fort",
+      "latitude": 6.9344,
+      "longitude": 79.8428
+    },
+    {
+      "id": 2,
+      "name": "Kandy",
+      "latitude": 7.2906,
+      "longitude": 80.6337
+    }
+  ]
+}
+```
+### 4.3 PATCH /stops/:id
+Description: Update a stop
+Access: Admin
+Body:
+```json
+{
+  "name": "Colombo Fort Main Stop"
+}
+```
+Response `200`:
+```json
+{
+  "success": true,
+  "message": "Stop updated successfully",
+  "data": {
+    "id": 1,
+    "name": "Colombo Fort Main Stop",
+    "latitude": 6.9344,
+    "longitude": 79.8428
+  }
+}
+```
+
+### 4.4 DELETE /stops/:id
+Description: Soft delete a stop
+Access: Admin
+Response `200`:
+```json
+{
+  "success": true,
+  "message": "Stop deleted successfully"
+}
+```
+
+## 5. Bus Endpoints
 Access: Admin
 
-### 4.1 GET /buses
+### 5.1 GET /buses
 Description: Returns a list of buses.
 
 Response `200`: 
@@ -455,7 +590,7 @@ Response `200`:
   }
 }
 ```
-### 4.2 GET /buses/:id
+### 5.2 GET /buses/:id
 Description: Returns details for a single bus by ID.
 Response `200`: 
 
@@ -492,7 +627,7 @@ Response `200`:
 
 ```
 
-### 4.3 POST /buses
+### 5.3 POST /buses
 Description: Creates a new bus account.
 Body:
 
@@ -553,7 +688,7 @@ Response `201`:
 
 ```
 
-### 4.4 PUT /buses/:id
+### 5.4 PUT /buses/:id
 Description: Updates an existing bus record by ID.
 Body:
 ```json
@@ -579,7 +714,7 @@ Response `200`:
 }
 ```
 
-### 4.5 DELETE /buses/:id
+### 5.5 DELETE /buses/:id
 Description: Deactivates a bus and marks its operational status as inactive. (`isActive = false`, `status = Inactive`)
 
 Response `200`:
@@ -592,7 +727,7 @@ Response `200`:
 }
 ```
 
-### 4.6 PATCH /buses/location
+### 5.6 PATCH /buses/location
 Access: Authenticated
 Description: Fetch location from phone logged into bus account.
 Body:
@@ -619,9 +754,9 @@ Response `200`:
 
 ---
 
-## 5. News Endpoints
+## 6. News Endpoints
 
-### 5.1 GET /news
+### 6.1 GET /news
 Description: Returns a list of news items.(Only summary data)
 Access: Public
 
@@ -651,7 +786,7 @@ Response `200`:
 }
 ```
 
-### 5.2 GET /news/:id
+### 6.2 GET /news/:id
 Description: Returns a single news item by ID.
 Access: Public
 
@@ -672,7 +807,7 @@ Response `200`:
 }
 ```
 
-### 5.3 POST /news
+### 6.3 POST /news
 Description: Creates a news item.
 Access: Admin only
 
@@ -704,7 +839,7 @@ Response `201`:
 }
 ```
 
-### 5.4 PATCH /news/:id
+### 6.4 PATCH /news/:id
 Description: Updates an existing news item by ID.
 Access: Admin only
 Body:
@@ -732,7 +867,7 @@ Response `200`:
 }
 ```
 
-### 5.5 DELETE /news/:id
+### 6.5 DELETE /news/:id
 Description: Soft deletes a news item so it no longer appears in default queries.(`isDeleted = true`)
 Access: Admin only
 
@@ -747,9 +882,9 @@ Response `200`:
 ```
 ---
 
-## 6. Alert Endpoints
+## 7. Alert Endpoints
 
-### 6.1 POST /alerts
+### 7.1 POST /alerts
 Description: Send alerts for passenger. (`affectedBus, affectedRoute, targetRoute` are optional. if `targetRoute` is not provided it will be a public alert.)
 Access: Admin
 Body:
@@ -779,7 +914,7 @@ Response `201`:
   }
 }
 ```
-### 6.2 GET /alerts
+### 7.2 GET /alerts
 Description: Get alerts
 Access: Authenticated
 Response `200`:
@@ -810,7 +945,7 @@ Response `200`:
   }
 }
 ```
-### 6.3 DELETE /alerts/:id
+### 7.3 DELETE /alerts/:id
 Description: Delete alert
 Access: Admin
 
@@ -823,7 +958,7 @@ Response `200`:
 }
 ```
 
-### 6.4 POST /bus-alerts
+### 7.4 POST /bus-alerts
 Description: Bus can send alerts to passenger that have subscribed to the route.
 Access: Authenticated
 Body:
@@ -848,7 +983,7 @@ Response `201`:
   }
 }
 ```
-### 6.5 GET /bus-alerts
+### 7.5 GET /bus-alerts
 Description: Get recent own alerts sent by Bus.
 Access: Authorixation
 Response `200`:
@@ -868,9 +1003,9 @@ Response `200`:
   ]
 }
 ```
-## 7. Feeback Endpoints
+## 8. Feeback Endpoints
 
-### 7.1 POST /feedback
+### 8.1 POST /feedback
 Description: Passenger can submit feedback
 Access: Authenticated
 Body: 
@@ -896,7 +1031,7 @@ Response `201`:
   }
 }
 ```
-### 7.2 GET /feedback
+### 8.2 GET /feedback
 Decsription: Show recent feedback from other passengers
 Access: Public
 Response `200`:
@@ -926,7 +1061,7 @@ Response `200`:
   }
 }
 ```
-### 7.3 GET /feedback/admin
+### 8.3 GET /feedback/admin
 Description: Get all feedback for admin view.
 Access: admin
 Response `200`:
@@ -966,7 +1101,7 @@ Response `200`:
   }
 }
 ```
-### 7.3 GET /feedback/:id
+### 8.4 GET /feedback/:id
 Description: See full feedback
 Access: Admin
 Response `200`:
@@ -984,7 +1119,7 @@ Response `200`:
   }
 }
 ```
-### 7.3 DELETE Feeback/:id
+### 8.5 DELETE Feeback/:id
 Description: Delete a feedback.
 Access: Admin
 Response `200`:
@@ -995,7 +1130,7 @@ Response `200`:
   "data": null
 }
 ```
-### 7.4 GET /feedback/my
+### 8.6 GET /feedback/my
 Description: Passenger can see own feedback.
 Access: Authenticated
 Response `200`:
@@ -1024,9 +1159,9 @@ Response `200`:
 }
 ```
 
-## 8. Complaint Endpoints
+## 9. Complaint Endpoints
 
-### 8.1 POST /complaints
+### 9.1 POST /complaints
 Decsription: Passengers can submit complaints.
 Access: Authenticated
 Body:
@@ -1057,7 +1192,7 @@ Response `201`:
   }
 }
 ```
-### 8.2 GET /complaints/my
+### 9.2 GET /complaints/my
 Description: passenger can see own complaints
 Access: Authenticated
 Response `200`:
@@ -1087,7 +1222,7 @@ Response `200`:
   }
 }
 ```
-### 8.3 GET /complaints
+### 9.3 GET /complaints
 Description: Admin get a list of complaints.
 Access: Admin
 Response `200`:
@@ -1127,7 +1262,7 @@ Response `200`:
   }
 }
 ```
-### 8.4 GET /complaints/:id
+### 9.4 GET /complaints/:id
 Description: See one item of complaint.
 Access: Admin
 Response `200`:
@@ -1150,7 +1285,7 @@ Response `200`:
   }
 }
 ```
-### 8.5 PUT /complaints/:id
+### 9.5 PUT /complaints/:id
 Description: Update complain status
 Access: Admin
 Body:
@@ -1180,9 +1315,9 @@ Response `200`:
   }
 }
 ```
-## 9. Bus Reports Endpoints
+## 10. Bus Reports Endpoints
 
-### 9.1 POST /reports
+### 10.1 POST /reports
 Description: Submit Bus reports
 Access: Authenticated
 Body:
@@ -1205,7 +1340,7 @@ Response `201`:
   }
 }
 ```
-### 9.2 GET /reports
+### 10.2 GET /reports
 Description: REceive bus reports
 Access: Admin
 Response `200`:
@@ -1231,9 +1366,9 @@ Response `200`:
 }
 ```
 
-## 10. Live Tracking Endpoints
+## 11. Live Tracking Endpoints
 
-### 10.1 GET /tracking/:routeId
+### 11.1 GET /tracking/:routeId
 Description: Get Live Location of Buses for Passenger.(routeId is optional apply only if passneger select route.)
 Access: Authenticated
 Response `200`: 
@@ -1264,9 +1399,9 @@ Response `200`:
   }
 }
 ```
-## 11. Route Finder Endpoints
+## 12. Route Finder Endpoints
 
-### 11.1 GET /route-finder
+### 12.1 GET /route-finder
 Description: Find routes from start to end points.
 Access: Authenticated
 Response `200`:
@@ -1288,9 +1423,9 @@ Response `200`:
 }
 ```
 
-## 12. Lost & Found Endpoints
+## 13. Lost & Found Endpoints
 
-### 12.1 POST /lost-items
+### 13.1 POST /lost-items
 Description: Passenger can post a lost item post
 Access: Authorization
 Body:
@@ -1319,7 +1454,7 @@ Response `201`:
 }
 ```
 
-### 12.2 POST /found-items
+### 13.2 POST /found-items
 Description: Passengers can post found items.
 Access: Authorization
 Body:
@@ -1347,7 +1482,7 @@ Response `201`:
 }
 ```
 
-### 12.3 GET /lost-items
+### 13.3 GET /lost-items
 Description: Get list of lost items.
 Access: Public
 Response `200`:
@@ -1377,7 +1512,7 @@ Response `200`:
 }
 ```
 
-### 12.4 GET /found-items
+### 13.4 GET /found-items
 Description: Get a list of found items
 Access: Public
 Response `200`:
@@ -1406,7 +1541,7 @@ Response `200`:
   ]
 }
 ```
-### 12.5 GET /found-items/mine
+### 13.5 GET /found-items/mine
 Description: Get a list of found items submitted by user
 Access: Authorized
 Response `200`:
@@ -1427,7 +1562,7 @@ Response `200`:
 }
 ```
 
-### 12.6 GET /lost-items/mine
+### 13.6 GET /lost-items/mine
 Description: Get a list of lost items submitted by user.
 Access: Authorization
 Response `200`:
@@ -1448,7 +1583,7 @@ Response `200`:
 }
 ```
 
-### 12.7 PATCH /lost-items/:id
+### 13.7 PATCH /lost-items/:id
 Description: User can edit status of their lost item submitions.
 Access: Public
 Body:
@@ -1475,7 +1610,7 @@ Response:
 }
 ```
 
-### 12.8 PATCH /found-items/:id/status
+### 13.8 PATCH /found-items/:id/status
 Description: ser can edit status of their found item submitions.
 Access: Authorization
 Body:

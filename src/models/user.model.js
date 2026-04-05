@@ -28,24 +28,6 @@ const User = sequelize.define(
       type: DataTypes.STRING(20),
       allowNull: true,
     },
-    dob: {
-      type: DataTypes.DATEONLY,
-      allowNull: true,
-    },
-    gender: {
-      type: DataTypes.ENUM("male", "female", "other"),
-      allowNull: true,
-    },
-    nic: {
-      type: DataTypes.STRING(20),
-      allowNull: true,
-      unique: true,
-    },
-    userName: {
-      type: DataTypes.STRING(50),
-      allowNull: false,
-      unique: true,
-    },
     password: {
       type: DataTypes.STRING(255),
       allowNull: false,

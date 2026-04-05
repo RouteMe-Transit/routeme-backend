@@ -27,7 +27,7 @@ const create = async (req, res, next) => {
     const errors = validationResult(req);
     if (!errors.isEmpty()) throw new ApiError(422, "Validation failed", errors.array());
 
-    const user = await userService.createUser(req.body);
+    const user = await userService.createUser(req.body, { createdByAdmin: true });
     ApiResponse.created(res, user);
   } catch (err) {
     next(err);

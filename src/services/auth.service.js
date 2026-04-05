@@ -7,8 +7,8 @@ const generateToken = (payload) => {
   return jwt.sign(payload, config.jwt.secret, { expiresIn: config.jwt.expiresIn });
 };
 
-const login = async ({ email, password }) => {
-  const user = await userService.getUserByEmail(email);
+const login = async ({ email, phone, password }) => {
+  const user = email ? await userService.getUserByEmail(email) : await userService.getUserByPhone(phone);
   if (!user) throw new ApiError(401, "Invalid credentials");
 
   const isMatch = await user.comparePassword(password);
@@ -23,7 +23,7 @@ const login = async ({ email, password }) => {
 };
 
 const register = async (data) => {
-  const user = await userService.createUser(data);
+  const user = await userService.createUser(data, { createdByAdmin: false });
   const token = generateToken({ id: user.id, role: user.role });
   return { token, user };
 };
