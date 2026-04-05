@@ -5,35 +5,26 @@ const userValidation = {
     body("firstName").trim().notEmpty().withMessage("First name is required"),
     body("lastName").trim().notEmpty().withMessage("Last name is required"),
     body("email").isEmail().normalizeEmail().withMessage("Valid email is required"),
-    body("userName")
-      .trim()
-      .notEmpty()
-      .isLength({ min: 3, max: 50 })
-      .withMessage("Username must be 3–50 characters"),
     body("password")
       .isLength({ min: 8 })
       .withMessage("Password must be at least 8 characters"),
     body("role")
-      .optional()
-      .isIn(["admin", "passenger", "bus"])
-      .withMessage("Role must be admin, passenger, or bus"),
-    body("gender")
-      .optional()
-      .isIn(["male", "female", "other"])
-      .withMessage("Gender must be male, female, or other"),
-    body("dob").optional().isDate().withMessage("Invalid date of birth"),
+      .notEmpty()
+      .withMessage("Role is required")
+      .bail()
+      .isIn(["admin", "bus"])
+      .withMessage("Role must be admin or bus"),
     body("phone").optional().trim(),
-    body("nic").optional().trim(),
   ],
   update: [
     body("firstName").optional().trim().notEmpty().withMessage("First name cannot be empty"),
     body("lastName").optional().trim().notEmpty().withMessage("Last name cannot be empty"),
     body("email").optional().isEmail().normalizeEmail().withMessage("Valid email is required"),
-    body("gender")
+    body("phone").optional().trim(),
+    body("role")
       .optional()
-      .isIn(["male", "female", "other"])
-      .withMessage("Gender must be male, female, or other"),
-    body("dob").optional().isDate().withMessage("Invalid date of birth"),
+      .isIn(["admin", "passenger", "bus"])
+      .withMessage("Role must be admin, passenger, or bus"),
   ],
 };
 
@@ -57,21 +48,33 @@ const newsValidation = {
 
 const authValidation = {
   login: [
-    body("email").isEmail().normalizeEmail().withMessage("Valid email is required"),
+    body("email").optional().isEmail().normalizeEmail().withMessage("Valid email is required"),
+    body("phone").optional().trim(),
+    body().custom((value) => {
+      if (!value || (!value.email && !value.phone)) {
+        throw new Error("Either email or phone is required");
+      }
+
+      return true;
+    }),
     body("password").notEmpty().withMessage("Password is required"),
   ],
   register: [
     body("firstName").trim().notEmpty().withMessage("First name is required"),
     body("lastName").trim().notEmpty().withMessage("Last name is required"),
     body("email").isEmail().normalizeEmail().withMessage("Valid email is required"),
-    body("userName")
-      .trim()
-      .notEmpty()
-      .isLength({ min: 3, max: 50 })
-      .withMessage("Username must be 3–50 characters"),
+    body("phone").optional().trim(),
     body("password")
       .isLength({ min: 8 })
       .withMessage("Password must be at least 8 characters"),
+    body("confirmPassword").notEmpty().withMessage("Confirm password is required"),
+    body("confirmPassword").custom((value, { req }) => {
+      if (value !== req.body.password) {
+        throw new Error("Confirm password does not match password");
+      }
+
+      return true;
+    }),
   ],
 };
 
