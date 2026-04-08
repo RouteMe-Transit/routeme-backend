@@ -28,6 +28,11 @@ const User = sequelize.define(
       type: DataTypes.STRING(20),
       allowNull: true,
     },
+    subscribedRoutes: {
+      type: DataTypes.JSON,
+      allowNull: true,
+      defaultValue: [],
+    },
     password: {
       type: DataTypes.STRING(255),
       allowNull: false,

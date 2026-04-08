@@ -1,6 +1,14 @@
 const { User } = require("../models");
 const ApiError = require("../utils/ApiError");
 
+const normalizeSubscribedRoutes = (data) => {
+  if (Array.isArray(data.subscribedRoutes)) {
+    return [...new Set(data.subscribedRoutes.map((route) => `${route}`.trim()).filter(Boolean))];
+  }
+
+  return undefined;
+};
+
 const getAllUsers = async ({ page = 1, limit = 10, role } = {}) => {
   const offset = (page - 1) * limit;
   const where = {};
@@ -51,6 +59,7 @@ const createUser = async (data, options = {}) => {
     lastName: data.lastName,
     email: data.email,
     phone: data.phone,
+    subscribedRoutes: normalizeSubscribedRoutes(data),
     password: data.password,
     isActive: data.isActive,
   };
@@ -85,6 +94,7 @@ const updateUser = async (id, data) => {
     lastName: data.lastName,
     email: data.email,
     phone: data.phone,
+    subscribedRoutes: normalizeSubscribedRoutes(data),
     password: data.password,
     role: data.role,
     isActive: data.isActive,
