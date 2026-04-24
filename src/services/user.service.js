@@ -1,12 +1,64 @@
 const { User } = require("../models");
 const ApiError = require("../utils/ApiError");
 
+const normalizeRouteValue = (route) => `${route || ""}`.trim();
+
+const normalizeRouteKey = (route) => normalizeRouteValue(route).toLowerCase();
+
+const uniqueRoutes = (routes = []) => {
+  const result = [];
+  const seen = new Set();
+
+  for (const route of routes) {
+    const value = normalizeRouteValue(route);
+    if (!value) continue;
+
+    const key = normalizeRouteKey(value);
+    if (seen.has(key)) continue;
+
+    seen.add(key);
+    result.push(value);
+  }
+
+  return result;
+};
+
+const coerceRoutesArray = (value) => {
+  if (Array.isArray(value)) return value;
+
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+    if (!trimmed) return [];
+
+    try {
+      const parsed = JSON.parse(trimmed);
+      if (Array.isArray(parsed)) return parsed;
+      return [parsed];
+    } catch (_) {
+      return [trimmed];
+    }
+  }
+
+  return [];
+};
+
+const mergeRoutes = (existingRoutes = [], newRoutes = []) => {
+  return uniqueRoutes([...coerceRoutesArray(existingRoutes), ...coerceRoutesArray(newRoutes)]);
+};
+
 const normalizeSubscribedRoutes = (data) => {
   if (Array.isArray(data.subscribedRoutes)) {
-    return [...new Set(data.subscribedRoutes.map((route) => `${route}`.trim()).filter(Boolean))];
+    return uniqueRoutes(data.subscribedRoutes);
   }
 
   return undefined;
+};
+
+const normalizeAssignedRoute = (value) => {
+  if (typeof value === "undefined") return undefined;
+
+  const trimmed = `${value || ""}`.trim();
+  return trimmed || null;
 };
 
 const getAllUsers = async ({ page = 1, limit = 10, role } = {}) => {
@@ -60,6 +112,7 @@ const createUser = async (data, options = {}) => {
     email: data.email,
     phone: data.phone,
     subscribedRoutes: normalizeSubscribedRoutes(data),
+    assignedRoute: normalizeAssignedRoute(data.assignedRoute),
     password: data.password,
     isActive: data.isActive,
   };
@@ -68,9 +121,15 @@ const createUser = async (data, options = {}) => {
     if (!["admin", "bus"].includes(data.role)) {
       throw new ApiError(422, "Admin can only create admin or bus accounts");
     }
+
+    if (data.role === "bus" && !payload.assignedRoute) {
+      throw new ApiError(422, "assignedRoute is required for bus accounts");
+    }
+
     payload.role = data.role;
   } else {
     payload.role = "passenger";
+    payload.assignedRoute = null;
   }
 
   return User.create(payload);
@@ -95,12 +154,35 @@ const updateUser = async (id, data) => {
     email: data.email,
     phone: data.phone,
     subscribedRoutes: normalizeSubscribedRoutes(data),
+    assignedRoute: normalizeAssignedRoute(data.assignedRoute),
     password: data.password,
     role: data.role,
     isActive: data.isActive,
   };
 
+  const nextRole = payload.role || user.role;
+  const nextAssignedRoute = typeof payload.assignedRoute === "undefined" ? user.assignedRoute : payload.assignedRoute;
+  if (nextRole === "bus" && !nextAssignedRoute) {
+    throw new ApiError(422, "assignedRoute is required for bus accounts");
+  }
+
   await user.update(payload);
+  return user;
+};
+
+const updatePassengerSubscriptions = async (userId, subscribedRoutes) => {
+  if (!Array.isArray(subscribedRoutes)) {
+    throw new ApiError(422, "subscribedRoutes must be an array of route strings");
+  }
+
+  const user = await getUserById(userId);
+  if (user.role !== "passenger") {
+    throw new ApiError(403, "Only passengers can update route subscriptions");
+  }
+
+  const mergedRoutes = mergeRoutes(user.subscribedRoutes, subscribedRoutes);
+  await user.update({ subscribedRoutes: mergedRoutes });
+
   return user;
 };
 
@@ -116,5 +198,6 @@ module.exports = {
   getUserByPhone,
   createUser,
   updateUser,
+  updatePassengerSubscriptions,
   deleteUser,
 };

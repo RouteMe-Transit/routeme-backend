@@ -13,6 +13,14 @@ const isValidRouteArray = (value) => {
   return true;
 };
 
+const validateAssignedRouteForBus = (value, { req }) => {
+  if (req.body.role === "bus" && !`${value || ""}`.trim()) {
+    throw new Error("assignedRoute is required for bus users");
+  }
+
+  return true;
+};
+
 const userValidation = {
   create: [
     body("firstName").trim().notEmpty().withMessage("First name is required"),
@@ -27,6 +35,10 @@ const userValidation = {
       .bail()
       .isIn(["admin", "bus"])
       .withMessage("Role must be admin or bus"),
+    body("assignedRoute")
+      .optional({ nullable: true })
+      .trim()
+      .custom(validateAssignedRouteForBus),
     body("phone").optional().trim(),
     body("subscribedRoutes").optional({ nullable: true }).custom(isValidRouteArray),
   ],
@@ -40,6 +52,14 @@ const userValidation = {
       .optional()
       .isIn(["admin", "passenger", "bus"])
       .withMessage("Role must be admin, passenger, or bus"),
+    body("assignedRoute").optional({ nullable: true }).trim(),
+  ],
+  updateSubscriptions: [
+    body("subscribedRoutes")
+      .exists()
+      .withMessage("subscribedRoutes is required")
+      .bail()
+      .custom(isValidRouteArray),
   ],
 };
 
@@ -95,7 +115,13 @@ const authValidation = {
 
 const alertValidation = {
   create: [
-    body("alertType").trim().notEmpty().withMessage("Alert type is required"),
+    body("alertType")
+      .trim()
+      .notEmpty()
+      .withMessage("Alert type is required")
+      .bail()
+      .isIn(["delay", "weather", "breakdown", "not operating", "accident", "road block", "sccident"])
+      .withMessage("Invalid alert type"),
     body("title").trim().notEmpty().withMessage("Alert title is required"),
     body("description").trim().notEmpty().withMessage("Description is required"),
     body("targetAudience")
@@ -118,6 +144,15 @@ const alertValidation = {
       }),
     body("affectedBus").optional({ nullable: true }).trim(),
     body("scheduledAt").optional({ nullable: true }).isISO8601().withMessage("Invalid schedule date/time"),
+  ],
+  busSend: [
+    body("alertType")
+      .trim()
+      .notEmpty()
+      .withMessage("Alert type is required")
+      .bail()
+      .isIn(["delay", "weather", "breakdown", "not operating", "accident", "road block", "sccident"])
+      .withMessage("Invalid alert type"),
   ],
 };
 
