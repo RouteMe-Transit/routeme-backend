@@ -1,5 +1,26 @@
 const { body } = require("express-validator");
 
+const isValidRouteArray = (value) => {
+  if (!Array.isArray(value)) {
+    throw new Error("subscribedRoutes must be an array of route strings");
+  }
+
+  const hasInvalid = value.some((route) => typeof route !== "string" || !route.trim());
+  if (hasInvalid) {
+    throw new Error("Each subscribed route must be a non-empty string");
+  }
+
+  return true;
+};
+
+const validateAssignedRouteForBus = (value, { req }) => {
+  if (req.body.role === "bus" && !`${value || ""}`.trim()) {
+    throw new Error("assignedRoute is required for bus users");
+  }
+
+  return true;
+};
+
 const userValidation = {
   create: [
     body("firstName").trim().notEmpty().withMessage("First name is required"),
@@ -14,17 +35,31 @@ const userValidation = {
       .bail()
       .isIn(["admin", "bus"])
       .withMessage("Role must be admin or bus"),
+    body("assignedRoute")
+      .optional({ nullable: true })
+      .trim()
+      .custom(validateAssignedRouteForBus),
     body("phone").optional().trim(),
+    body("subscribedRoutes").optional({ nullable: true }).custom(isValidRouteArray),
   ],
   update: [
     body("firstName").optional().trim().notEmpty().withMessage("First name cannot be empty"),
     body("lastName").optional().trim().notEmpty().withMessage("Last name cannot be empty"),
     body("email").optional().isEmail().normalizeEmail().withMessage("Valid email is required"),
     body("phone").optional().trim(),
+    body("subscribedRoutes").optional({ nullable: true }).custom(isValidRouteArray),
     body("role")
       .optional()
       .isIn(["admin", "passenger", "bus"])
       .withMessage("Role must be admin, passenger, or bus"),
+    body("assignedRoute").optional({ nullable: true }).trim(),
+  ],
+  updateSubscriptions: [
+    body("subscribedRoutes")
+      .exists()
+      .withMessage("subscribedRoutes is required")
+      .bail()
+      .custom(isValidRouteArray),
   ],
 };
 
@@ -78,4 +113,47 @@ const authValidation = {
   ],
 };
 
-module.exports = { userValidation, newsValidation, authValidation };
+const alertValidation = {
+  create: [
+    body("alertType")
+      .trim()
+      .notEmpty()
+      .withMessage("Alert type is required")
+      .bail()
+      .isIn(["delay", "weather", "breakdown", "not operating", "accident", "road block", "sccident"])
+      .withMessage("Invalid alert type"),
+    body("title").trim().notEmpty().withMessage("Alert title is required"),
+    body("description").trim().notEmpty().withMessage("Description is required"),
+    body("targetAudience")
+      .notEmpty()
+      .withMessage("Target audience is required")
+      .bail()
+      .isIn(["public", "route"])
+      .withMessage("Target audience must be public or route"),
+    body("targetRoute").optional({ nullable: true }).trim(),
+    body("affectedRoute")
+      .optional({ nullable: true })
+      .trim()
+      .custom((value, { req }) => {
+        const routeValue = req.body.targetRoute || value;
+        if (req.body.targetAudience === "route" && !routeValue) {
+          throw new Error("Affected route is required when target audience is route");
+        }
+
+        return true;
+      }),
+    body("affectedBus").optional({ nullable: true }).trim(),
+    body("scheduledAt").optional({ nullable: true }).isISO8601().withMessage("Invalid schedule date/time"),
+  ],
+  busSend: [
+    body("alertType")
+      .trim()
+      .notEmpty()
+      .withMessage("Alert type is required")
+      .bail()
+      .isIn(["delay", "weather", "breakdown", "not operating", "accident", "road block", "sccident"])
+      .withMessage("Invalid alert type"),
+  ],
+};
+
+module.exports = { userValidation, newsValidation, authValidation, alertValidation };

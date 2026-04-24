@@ -319,7 +319,7 @@ Response `200`:
         "timeFromStart": 45
       }
     ],
-        "isActive": true
+        "isActive": true,
     }
 }
 ```

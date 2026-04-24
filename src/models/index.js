@@ -1,6 +1,7 @@
 const sequelize = require("../config/database");
 const User = require("./user.model");
 const News = require("./news.model");
+const Alert = require("./alerts.model");
 
 // Define associations here as the app grows
 // e.g. User.hasMany(News, { foreignKey: 'authorId' });
@@ -10,4 +11,4 @@ const syncDatabase = async () => {
   console.log("Database synced successfully");
 };
 
-module.exports = { sequelize, syncDatabase, User, News };
+module.exports = { sequelize, syncDatabase, User, News, Alert };
