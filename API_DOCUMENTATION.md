@@ -318,7 +318,7 @@ Response `200`:
         "stopSequence": 3,
         "timeFromStart": 45
       }
-    ],
+    ]
         "isActive": true,
     }
 }

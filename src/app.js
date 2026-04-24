@@ -27,7 +27,9 @@ app.get("/health", (req, res) => {
 
 // API routes
 app.use("/api/v1", routes);
-
+app.get("/", (req, res) => {
+  res.send("RouteMe API is running 🚀");
+});
 // 404 handler
 app.use(notFound);
 
