@@ -8,6 +8,7 @@ const generateToken = (payload) => {
 };
 
 const login = async ({ email, phone, password }) => {
+
   const user = email ? await userService.getUserByEmail(email) : await userService.getUserByPhone(phone);
   if (!user) throw new ApiError(401, "Invalid credentials");
 
