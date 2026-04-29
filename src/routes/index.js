@@ -11,4 +11,13 @@ router.use("/users", userRoutes);
 router.use("/news", newsRoutes);
 router.use("/alerts", alertRoutes);
 
+// ✅ Test API
+router.get("/test", (req, res) => {
+  res.json({
+    success: true,
+    message: "API is working 🎉",
+    timestamp: new Date().toISOString(),
+  });
+});
+
 module.exports = router;
