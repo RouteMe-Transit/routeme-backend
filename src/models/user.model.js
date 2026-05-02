@@ -9,6 +9,7 @@ const User = sequelize.define(
       type: DataTypes.INTEGER.UNSIGNED,
       autoIncrement: true,
       primaryKey: true,
+      // NO userId, no USER0001 — plain auto-increment integer only
     },
     firstName: {
       type: DataTypes.STRING(100),
