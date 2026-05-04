@@ -6,13 +6,14 @@ const BusDetails = require("./bus_details.model");
 const Route      = require("./route.model");
 const Stop       = require("./stop.model");
 
-// ── ONE association only, both sides use the SAME foreignKey "userId"
-// ── This prevents Sequelize from auto-generating an "ownerId" column
+// ── User ↔ BusDetails (one-to-one via userId)
 User.hasOne(BusDetails,    { foreignKey: "userId", as: "busDetails" });
 BusDetails.belongsTo(User, { foreignKey: "userId", as: "user" });
 
-// ── Use alter:true so existing data is preserved but schema stays in sync
-// ── Switch to force:true ONLY if you want a clean wipe
+// ── Route ↔ BusDetails (one-to-many via routeId)
+Route.hasMany(BusDetails,     { foreignKey: "routeId", as: "buses" });
+BusDetails.belongsTo(Route,   { foreignKey: "routeId", as: "route" });
+
 const syncDatabase = async () => {
   await sequelize.sync({ alter: true });
   console.log("✅ Database synced successfully");

@@ -1,83 +1,65 @@
 const { User } = require("../models");
 const ApiError = require("../utils/ApiError");
 
-const normalizeRouteValue = (route) => `${route || ""}`.trim();
+// ── Route subscription helpers ────────────────────────────────────────────────
 
-const normalizeRouteKey = (route) => normalizeRouteValue(route).toLowerCase();
+const normalizeRouteValue = (route) => `${route || ""}`.trim();
+const normalizeRouteKey   = (route) => normalizeRouteValue(route).toLowerCase();
 
 const uniqueRoutes = (routes = []) => {
   const result = [];
   const seen = new Set();
-
   for (const route of routes) {
     const value = normalizeRouteValue(route);
     if (!value) continue;
-
     const key = normalizeRouteKey(value);
     if (seen.has(key)) continue;
-
     seen.add(key);
     result.push(value);
   }
-
   return result;
 };
 
 const coerceRoutesArray = (value) => {
   if (Array.isArray(value)) return value;
-
   if (typeof value === "string") {
     const trimmed = value.trim();
     if (!trimmed) return [];
-
     try {
       const parsed = JSON.parse(trimmed);
-      if (Array.isArray(parsed)) return parsed;
-      return [parsed];
+      return Array.isArray(parsed) ? parsed : [parsed];
     } catch (_) {
       return [trimmed];
     }
   }
-
   return [];
 };
 
-const mergeRoutes = (existingRoutes = [], newRoutes = []) => {
-  return uniqueRoutes([...coerceRoutesArray(existingRoutes), ...coerceRoutesArray(newRoutes)]);
-};
+const mergeRoutes = (existing = [], incoming = []) =>
+  uniqueRoutes([...coerceRoutesArray(existing), ...coerceRoutesArray(incoming)]);
 
-const normalizeSubscribedRoutes = (data) => {
-  if (Array.isArray(data.subscribedRoutes)) {
-    return uniqueRoutes(data.subscribedRoutes);
-  }
+const normalizeSubscribedRoutes = (data) =>
+  Array.isArray(data.subscribedRoutes) ? uniqueRoutes(data.subscribedRoutes) : undefined;
 
-  return undefined;
-};
-
-const normalizeAssignedRoute = (value) => {
-  if (typeof value === "undefined") return undefined;
-
-  const trimmed = `${value || ""}`.trim();
-  return trimmed || null;
-};
+// ── CRUD ──────────────────────────────────────────────────────────────────────
 
 const getAllUsers = async ({ page = 1, limit = 10, role } = {}) => {
   const offset = (page - 1) * limit;
-  const where = {};
+  const where  = {};
   if (role) where.role = role;
 
   const { count, rows } = await User.findAndCountAll({
     where,
-    limit: parseInt(limit),
+    limit:  parseInt(limit),
     offset: parseInt(offset),
-    order: [["createdAt", "DESC"]],
+    order:  [["createdAt", "DESC"]],
   });
 
   return {
-    total: count,
-    page: parseInt(page),
+    total:      count,
+    page:       parseInt(page),
     totalPages: Math.ceil(count / limit),
-    users: rows,
+    users:      rows,
   };
 };
 
@@ -87,13 +69,11 @@ const getUserById = async (id) => {
   return user;
 };
 
-const getUserByEmail = async (email) => {
-  return User.scope("withPassword").findOne({ where: { email } });
-};
+const getUserByEmail = async (email) =>
+  User.scope("withPassword").findOne({ where: { email } });
 
-const getUserByPhone = async (phone) => {
-  return User.scope("withPassword").findOne({ where: { phone } });
-};
+const getUserByPhone = async (phone) =>
+  User.scope("withPassword").findOne({ where: { phone } });
 
 const createUser = async (data, options = {}) => {
   const { createdByAdmin = false } = options;
@@ -107,29 +87,22 @@ const createUser = async (data, options = {}) => {
   }
 
   const payload = {
-    firstName: data.firstName,
-    lastName: data.lastName,
-    email: data.email,
-    phone: data.phone,
+    firstName:        data.firstName,
+    lastName:         data.lastName,
+    email:            data.email,
+    phone:            data.phone,
     subscribedRoutes: normalizeSubscribedRoutes(data),
-    assignedRoute: normalizeAssignedRoute(data.assignedRoute),
-    password: data.password,
-    isActive: data.isActive,
+    password:         data.password,
+    isActive:         data.isActive,
   };
 
   if (createdByAdmin) {
     if (!["admin", "bus"].includes(data.role)) {
       throw new ApiError(422, "Admin can only create admin or bus accounts");
     }
-
-    if (data.role === "bus" && !payload.assignedRoute) {
-      throw new ApiError(422, "assignedRoute is required for bus accounts");
-    }
-
     payload.role = data.role;
   } else {
     payload.role = "passenger";
-    payload.assignedRoute = null;
   }
 
   return User.create(payload);
@@ -148,25 +121,17 @@ const updateUser = async (id, data) => {
     if (existing) throw new ApiError(409, "Phone already in use");
   }
 
-  const payload = {
-    firstName: data.firstName,
-    lastName: data.lastName,
-    email: data.email,
-    phone: data.phone,
+  await user.update({
+    firstName:        data.firstName,
+    lastName:         data.lastName,
+    email:            data.email,
+    phone:            data.phone,
     subscribedRoutes: normalizeSubscribedRoutes(data),
-    assignedRoute: normalizeAssignedRoute(data.assignedRoute),
-    password: data.password,
-    role: data.role,
-    isActive: data.isActive,
-  };
+    password:         data.password,
+    role:             data.role,
+    isActive:         data.isActive,
+  });
 
-  const nextRole = payload.role || user.role;
-  const nextAssignedRoute = typeof payload.assignedRoute === "undefined" ? user.assignedRoute : payload.assignedRoute;
-  if (nextRole === "bus" && !nextAssignedRoute) {
-    throw new ApiError(422, "assignedRoute is required for bus accounts");
-  }
-
-  await user.update(payload);
   return user;
 };
 
@@ -180,9 +145,7 @@ const updatePassengerSubscriptions = async (userId, subscribedRoutes) => {
     throw new ApiError(403, "Only passengers can update route subscriptions");
   }
 
-  const mergedRoutes = mergeRoutes(user.subscribedRoutes, subscribedRoutes);
-  await user.update({ subscribedRoutes: mergedRoutes });
-
+  await user.update({ subscribedRoutes: mergeRoutes(user.subscribedRoutes, subscribedRoutes) });
   return user;
 };
 
