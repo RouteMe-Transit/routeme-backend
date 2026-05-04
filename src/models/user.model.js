@@ -9,7 +9,6 @@ const User = sequelize.define(
       type: DataTypes.INTEGER.UNSIGNED,
       autoIncrement: true,
       primaryKey: true,
-      // NO userId, no USER0001 — plain auto-increment integer only
     },
     firstName: {
       type: DataTypes.STRING(100),
@@ -34,10 +33,7 @@ const User = sequelize.define(
       allowNull: true,
       defaultValue: [],
     },
-    assignedRoute: {
-      type: DataTypes.STRING(255),
-      allowNull: true,
-    },
+    
     password: {
       type: DataTypes.STRING(255),
       allowNull: false,

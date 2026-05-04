@@ -33,10 +33,11 @@ const update = async (req, res, next) => {
   } catch (err) { next(err); }
 };
 
-const remove = async (req, res, next) => {
+// SUSPEND / UNSUSPEND — replaces hard delete
+const toggleActive = async (req, res, next) => {
   try {
-    await busService.remove(req.params.id);
-    ApiResponse.success(res, null, "Bus removed successfully");
+    const bus = await busService.toggleActive(req.params.id);
+    ApiResponse.success(res, bus, `Bus ${bus.isActive ? "activated" : "suspended"} successfully`);
   } catch (err) { next(err); }
 };
 
@@ -47,4 +48,4 @@ const getStats = async (req, res, next) => {
   } catch (err) { next(err); }
 };
 
-module.exports = { getAll, getById, create, update, remove, getStats };
+module.exports = { getAll, getById, create, update, toggleActive, getStats };

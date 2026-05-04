@@ -1,22 +1,14 @@
 const { Route } = require("../models");
 const ApiError = require("../utils/ApiError");
 
-const generateRouteId = async () => {
-  const last = await Route.findOne({ order: [["id", "DESC"]] });
-  const n = last ? parseInt(last.routeId.replace("RT", ""), 10) + 1 : 1;
-  return `RT${String(n).padStart(4, "0")}`;
-};
-
-const getAll = async ({ page = 1, limit = 20, status, search } = {}) => {
+const getAll = async ({ page = 1, limit = 20, search } = {}) => {
   const { Op } = require("sequelize");
   const where = {};
-  if (status && status !== "All Status") where.status = status;
   if (search) {
     where[Op.or] = [
-      { routeId: { [Op.like]: `%${search}%` } },
-      { name: { [Op.like]: `%${search}%` } },
-      { from: { [Op.like]: `%${search}%` } },
-      { to: { [Op.like]: `%${search}%` } },
+      { routeName: { [Op.like]: `%${search}%` } },
+      { from:      { [Op.like]: `%${search}%` } },
+      { to:        { [Op.like]: `%${search}%` } },
     ];
   }
   const offset = (parseInt(page) - 1) * parseInt(limit);
@@ -31,24 +23,44 @@ const getAll = async ({ page = 1, limit = 20, status, search } = {}) => {
 
 const getById = async (id) => {
   const route = await Route.findByPk(id);
-  if (!route || route.isDeleted) throw new ApiError(404, "Route not found");
+  if (!route) throw new ApiError(404, "Route not found");
   return route;
 };
 
 const create = async (data) => {
-  const routeId = await generateRouteId();
-  return Route.create({ ...data, routeId, stops: data.stopList?.length || 0 });
+  return Route.create({
+    routeName: data.routeName,
+    from:      data.from,
+    to:        data.to,
+    noOfBuses: data.noOfBuses ?? 0,
+    avgTime:   data.avgTime   ?? null,
+    stopList:  data.stopList  ?? [],
+    isActive:  data.isActive  ?? true,
+  });
 };
 
 const update = async (id, data) => {
   const route = await getById(id);
-  await route.update({ ...data, stops: data.stopList?.length || route.stopList?.length });
+  await route.update({
+    routeName: data.routeName ?? route.routeName,
+    from:      data.from      ?? route.from,
+    to:        data.to        ?? route.to,
+    noOfBuses: data.noOfBuses ?? route.noOfBuses,
+    avgTime:   data.avgTime   ?? route.avgTime,
+    stopList:  data.stopList  ?? route.stopList,
+  });
+  return route;
+};
+
+const suspend = async (id) => {
+  const route = await getById(id);
+  await route.update({ isActive: !route.isActive });
   return route;
 };
 
 const remove = async (id) => {
   const route = await getById(id);
-  await route.update({ isDeleted: true });
+  await route.destroy();
 };
 
-module.exports = { getAll, getById, create, update, remove };
+module.exports = { getAll, getById, create, update, remove, suspend };
