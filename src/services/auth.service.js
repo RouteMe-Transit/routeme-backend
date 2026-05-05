@@ -2,7 +2,7 @@ const jwt = require("jsonwebtoken");
 const config = require("../config");
 const userService = require("./user.service");
 const ApiError = require("../utils/ApiError");
-const { BusDetails } = require("../models");
+const { BusDetails, User } = require("../models");
 
 const generateToken = (payload) => {
   return jwt.sign(payload, config.jwt.secret, { expiresIn: config.jwt.expiresIn });
@@ -15,7 +15,7 @@ const login = async ({ email, phone, registrationNumber, password }) => {
   if (registrationNumber) {
     const bus = await BusDetails.findOne({ where: { registrationNumber } });
     if (!bus) throw new ApiError(401, "Invalid credentials");
-    user = await userService.getUserById(bus.userId);
+    user = await User.scope("withPassword").findByPk(bus.userId);
   } else if (email || phone) {
     // Regular user login with email or phone (NOT for buses)
     user = email ? await userService.getUserByEmail(email) : await userService.getUserByPhone(phone);
