@@ -25,8 +25,7 @@ const getAll = async ({ page = 1, limit = 20, search, status, routeId, day } = {
 
   if (search) {
     where[Op.or] = [
-      { tripId:     { [Op.like]: `%${search}%` } },
-      { driverName: { [Op.like]: `%${search}%` } },
+      { tripId: { [Op.like]: `%${search}%` } },
     ];
   }
 
@@ -67,7 +66,6 @@ const create = async (data) => {
     tripId,
     routeId:       data.routeId,
     busId:         data.busId,
-    driverName:    data.driverName    ?? null,
     direction:     data.direction     ?? "forward",
     departureTime: data.departureTime,
     arrivalTime:   data.arrivalTime,
@@ -85,7 +83,6 @@ const update = async (id, data) => {
   await trip.update({
     routeId:       data.routeId       ?? trip.routeId,
     busId:         data.busId         ?? trip.busId,
-    driverName:    data.driverName    ?? trip.driverName,
     direction:     data.direction     ?? trip.direction,
     departureTime: data.departureTime ?? trip.departureTime,
     arrivalTime:   data.arrivalTime   ?? trip.arrivalTime,
