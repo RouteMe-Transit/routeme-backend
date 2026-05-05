@@ -1,3 +1,5 @@
+// validate.middleware.js
+
 const { body } = require("express-validator");
 
 // ── Shared helpers ────────────────────────────────────────────────────────────
@@ -198,6 +200,75 @@ const alertValidation = {
   ],
 };
 
+// ── Trip validations ──────────────────────────────────────────────────────────
+
+const TRIP_STATUSES = ["active", "scheduled", "delayed", "completed", "cancelled"];
+const VALID_DAYS    = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+
+const isValidDaysArray = (value) => {
+  if (!Array.isArray(value)) throw new Error("days must be an array");
+  if (value.some((d) => !VALID_DAYS.includes(d)))
+    throw new Error(`Each day must be one of: ${VALID_DAYS.join(", ")}`);
+  return true;
+};
+
+const tripValidation = {
+  create: [
+    body("routeId")
+      .notEmpty().withMessage("routeId is required")
+      .bail()
+      .isInt({ min: 1 }).withMessage("routeId must be a positive integer"),
+    body("busId")
+      .notEmpty().withMessage("busId is required")
+      .bail()
+      .isInt({ min: 1 }).withMessage("busId must be a positive integer"),
+    body("driverName").optional().trim(),
+    body("direction")
+      .optional()
+      .isIn(["forward", "return"]).withMessage("direction must be forward or return"),
+    body("departureTime")
+      .notEmpty().withMessage("departureTime is required")
+      .bail()
+      .matches(/^\d{2}:\d{2}(:\d{2})?$/).withMessage("departureTime must be HH:MM or HH:MM:SS"),
+    body("arrivalTime")
+      .notEmpty().withMessage("arrivalTime is required")
+      .bail()
+      .matches(/^\d{2}:\d{2}(:\d{2})?$/).withMessage("arrivalTime must be HH:MM or HH:MM:SS"),
+    body("days")
+      .optional()
+      .custom(isValidDaysArray),
+    body("status")
+      .optional()
+      .isIn(TRIP_STATUSES).withMessage(`status must be one of: ${TRIP_STATUSES.join(", ")}`),
+  ],
+  update: [
+    body("routeId").optional().isInt({ min: 1 }).withMessage("routeId must be a positive integer"),
+    body("busId").optional().isInt({ min: 1 }).withMessage("busId must be a positive integer"),
+    body("driverName").optional().trim(),
+    body("direction")
+      .optional()
+      .isIn(["forward", "return"]).withMessage("direction must be forward or return"),
+    body("departureTime")
+      .optional()
+      .matches(/^\d{2}:\d{2}(:\d{2})?$/).withMessage("departureTime must be HH:MM or HH:MM:SS"),
+    body("arrivalTime")
+      .optional()
+      .matches(/^\d{2}:\d{2}(:\d{2})?$/).withMessage("arrivalTime must be HH:MM or HH:MM:SS"),
+    body("days")
+      .optional()
+      .custom(isValidDaysArray),
+    body("status")
+      .optional()
+      .isIn(TRIP_STATUSES).withMessage(`status must be one of: ${TRIP_STATUSES.join(", ")}`),
+  ],
+  updateStatus: [
+    body("status")
+      .notEmpty().withMessage("status is required")
+      .bail()
+      .isIn(TRIP_STATUSES).withMessage(`status must be one of: ${TRIP_STATUSES.join(", ")}`),
+  ],
+};
+
 module.exports = {
   userValidation,
   busValidation,
@@ -206,4 +277,5 @@ module.exports = {
   newsValidation,
   authValidation,
   alertValidation,
+  tripValidation,
 };
