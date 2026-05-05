@@ -46,6 +46,7 @@ const BusDetails = sequelize.define(
       type: DataTypes.DECIMAL(10, 7),
       allowNull: true,
     },
+    // Owner details (not login credentials, just info about the bus owner)
     ownerName: {
       type: DataTypes.STRING(150),
       allowNull: false,
@@ -54,7 +55,11 @@ const BusDetails = sequelize.define(
       type: DataTypes.STRING(20),
       allowNull: false,
     },
-    ownerPhone: {
+    ownerEmail: {
+      type: DataTypes.STRING(255), //email and phone numbers are not unique for bus details, as multiple buses can have the same owner
+      allowNull: false,
+    },
+    ownerPhone: { 
       type: DataTypes.STRING(20),
       allowNull: false,
     },
