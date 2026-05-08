@@ -141,9 +141,10 @@ const authValidation = {
   login: [
     body("email").optional().isEmail().normalizeEmail().withMessage("Valid email is required"),
     body("phone").optional().trim(),
+    body("registrationNumber").optional().trim(),
     body().custom((value) => {
-      if (!value || (!value.email && !value.phone))
-        throw new Error("Either email or phone is required");
+      if (!value || (!value.email && !value.phone && !value.registrationNumber))
+        throw new Error("Either email, phone, or registration number is required");
       return true;
     }),
     body("password").notEmpty().withMessage("Password is required"),
@@ -222,7 +223,6 @@ const tripValidation = {
       .notEmpty().withMessage("busId is required")
       .bail()
       .isInt({ min: 1 }).withMessage("busId must be a positive integer"),
-    body("driverName").optional().trim(),
     body("direction")
       .optional()
       .isIn(["forward", "return"]).withMessage("direction must be forward or return"),
@@ -244,7 +244,6 @@ const tripValidation = {
   update: [
     body("routeId").optional().isInt({ min: 1 }).withMessage("routeId must be a positive integer"),
     body("busId").optional().isInt({ min: 1 }).withMessage("busId must be a positive integer"),
-    body("driverName").optional().trim(),
     body("direction")
       .optional()
       .isIn(["forward", "return"]).withMessage("direction must be forward or return"),

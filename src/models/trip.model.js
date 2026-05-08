@@ -23,10 +23,6 @@ const Trip = sequelize.define(
       onUpdate: "CASCADE",
       onDelete: "RESTRICT",
     },
-    driverName: {
-      type: DataTypes.STRING,
-      allowNull: true,
-    },
     direction: {
       type: DataTypes.ENUM("forward", "return"),
       allowNull: false,
