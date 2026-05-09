@@ -35,6 +35,15 @@ const userValidation = {
       .withMessage("Gender must be male, female, or other"),
     body("dob").optional().isDate().withMessage("Invalid date of birth"),
   ],
+  updateSubscriptions: [
+    body("subscribedRoutes")
+      .isArray({ min: 1 })
+      .withMessage("subscribedRoutes must be a non-empty array"),
+    body("subscribedRoutes.*")
+      .trim()
+      .notEmpty()
+      .withMessage("Each subscribed route must be a non-empty string"),
+  ],
 };
 
 const newsValidation = {

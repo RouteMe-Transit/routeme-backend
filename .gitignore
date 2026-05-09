@@ -1,7 +1,17 @@
+# Node modules
 node_modules/
+
+# Environment files
 .env
+.env.*
+
+# Logs
 *.log
-.DS_Store
+
+# Build/test output
 dist/
 coverage/
 
+# Optional system files
+.DS_Store
+Thumbs.db
