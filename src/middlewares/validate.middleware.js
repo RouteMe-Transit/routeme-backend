@@ -75,4 +75,17 @@ const authValidation = {
   ],
 };
 
-module.exports = { userValidation, newsValidation, authValidation };
+const complaintValidation = {
+  create: [
+    body("category").trim().notEmpty().withMessage("Category is required"),
+    body("busNumber").trim().notEmpty().withMessage("Bus number is required"),
+    body("description").trim().notEmpty().withMessage("Description is required"),
+  ],
+  updateStatus: [
+    body("status")
+      .isIn(["Pending", "Resolved"])
+      .withMessage("Status must be Pending or Resolved"),
+  ],
+};
+
+module.exports = { userValidation, newsValidation, authValidation, complaintValidation };
