@@ -50,6 +50,16 @@ const getHistory = async (req, res, next) => {
   }
 };
 
+const getAllHistory = async (req, res, next) => {
+  try {
+    const { page, limit, status, createdBy } = req.query;
+    const result = await alertService.getAlertHistoryAllForAdmin({ page, limit, status, createdBy });
+    ApiResponse.success(res, result);
+  } catch (err) {
+    next(err);
+  }
+};
+
 const getPassengerFeed = async (req, res, next) => {
   try {
     const { page, limit } = req.query;
@@ -79,4 +89,4 @@ const getBusHistory = async (req, res, next) => {
   }
 };
 
-module.exports = { create, sendBusAlert, getById, getHistory, getBusHistory, getPassengerFeed };
+module.exports = { create, sendBusAlert, getById, getHistory, getAllHistory, getBusHistory, getPassengerFeed };

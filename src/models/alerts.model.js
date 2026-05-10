@@ -10,8 +10,32 @@ const Alert = sequelize.define(
 			primaryKey: true,
 		},
 		alertType: {
-			type: DataTypes.STRING(100),
+			type: DataTypes.ENUM(
+				'service distruption',
+				'road block',
+				'delay',
+				'accident',
+				'breakdown',
+				'weather',
+				'not operating',
+				'heavy rain',
+				'damaged roads',
+				'rule enforcement',
+				'new bus stop',
+				'removed bus stop',
+				'route change',
+				'public events',
+				'other'
+			),
 			allowNull: false,
+			validate: {
+				isIn: {
+					args: [[
+						'service distruption', 'road block', 'delay', 'accident', 'breakdown', 'weather', 'not operating', 'heavy rain', 'damaged roads', 'rule enforcement', 'new bus stop', 'removed bus stop', 'route change', 'public events', 'other'
+					]],
+					msg: 'Invalid alert type',
+				},
+			},
 		},
 		affectedRoute: {
 			type: DataTypes.STRING(255),
