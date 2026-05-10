@@ -1,6 +1,7 @@
 const { Route, RouteStop, Stop } = require("../models");
 const ApiError = require("../utils/ApiError");
 
+// ─── getAll ───────────────────────────────────────────────────────────────────
 const getAll = async ({ page = 1, limit = 20, search } = {}) => {
   const { Op } = require("sequelize");
   const where = {};
@@ -18,36 +19,72 @@ const getAll = async ({ page = 1, limit = 20, search } = {}) => {
     offset,
     order: [["createdAt", "DESC"]],
   });
-  return { total: count, page: parseInt(page), totalPages: Math.ceil(count / limit), routes: rows };
+
+  // Attach stopList (derived from route_stops) to every route for the table UI
+  const routesWithStops = await Promise.all(
+    rows.map(async (route) => {
+      const routeStops = await RouteStop.findAll({
+        where: { routeId: route.id },
+        include: [{ model: Stop, as: "stop", attributes: ["id", "stopName"] }],
+        order: [["stopSequence", "ASC"]],
+      });
+      const stopList = routeStops.map((rs, idx) => ({
+        id:            String(idx + 1).padStart(2, "0"),
+        stopId:        rs.stopId,
+        name:          rs.stop ? rs.stop.stopName : "",
+        timeFromStart: rs.time ?? "00.00",
+      }));
+      return { ...route.toJSON(), stopList };
+    })
+  );
+
+  return {
+    total:      count,
+    page:       parseInt(page),
+    totalPages: Math.ceil(count / limit),
+    routes:     routesWithStops,
+  };
 };
 
+// ─── getById ──────────────────────────────────────────────────────────────────
 const getById = async (id) => {
   const route = await Route.findByPk(id);
   if (!route) throw new ApiError(404, "Route not found");
 
-  // load associated stops from route_stops table
   const routeStops = await RouteStop.findAll({
-    where: { routeId: route.id },
+    where:   { routeId: route.id },
     include: [{ model: Stop, as: "stop", attributes: ["id", "stopName", "latitude", "longitude"] }],
-    order: [["stopSequence", "ASC"]],
+    order:   [["stopSequence", "ASC"]],
   });
 
   const result = route.toJSON();
-  result.routeStops = routeStops.map((rs) => ({
-    id: rs.id,
-    stopId: rs.stopId,
-    stopSequence: rs.stopSequence,
-    time: rs.time,
-    stop: rs.stop || null,
+
+  // Canonical stop list derived from route_stops table
+  result.stopList = routeStops.map((rs, idx) => ({
+    id:            String(idx + 1).padStart(2, "0"),
+    stopId:        rs.stopId,
+    name:          rs.stop ? rs.stop.stopName : "",
+    timeFromStart: rs.time ?? "00.00",
   }));
 
-  // stopList is legacy JSON kept on the Route record; routeStops is the canonical table.
-  // Remove `stopList` from the GET-by-id response to avoid duplication.
-  if (Object.prototype.hasOwnProperty.call(result, "stopList")) delete result.stopList;
+  // Also expose raw routeStops for callers that need full stop detail
+  result.routeStops = routeStops.map((rs) => ({
+    id:           rs.id,
+    stopId:       rs.stopId,
+    stopSequence: rs.stopSequence,
+    time:         rs.time,
+    stop:         rs.stop ?? null,
+  }));
 
   return result;
 };
 
+// ─── create ───────────────────────────────────────────────────────────────────
+/**
+ * Expects stopList items in the shape:
+ *   { stopId: number, stopSequence: number, time: string }
+ * The frontend maps its StopItem[] to this before POSTing.
+ */
 const create = async (data) => {
   const route = await Route.create({
     routeName: data.routeName,
@@ -55,7 +92,6 @@ const create = async (data) => {
     to:        data.to,
     noOfBuses: data.noOfBuses ?? 0,
     avgTime:   data.avgTime   ?? null,
-    stopList:  data.stopList  ?? [],
     isActive:  data.isActive  ?? true,
   });
 
@@ -64,10 +100,10 @@ const create = async (data) => {
       const stop = await Stop.findByPk(item.stopId);
       if (!stop) throw new ApiError(404, `Stop not found (id=${item.stopId})`);
       await RouteStop.create({
-        routeId: route.id,
-        stopId: item.stopId,
+        routeId:      route.id,
+        stopId:       item.stopId,
         stopSequence: item.stopSequence ?? 1,
-        time: item.time ?? null,
+        time:         item.time ?? null,
       });
     }
   }
@@ -75,6 +111,7 @@ const create = async (data) => {
   return getById(route.id);
 };
 
+// ─── update ───────────────────────────────────────────────────────────────────
 const update = async (id, data) => {
   const route = await Route.findByPk(id);
   if (!route) throw new ApiError(404, "Route not found");
@@ -85,20 +122,20 @@ const update = async (id, data) => {
     to:        data.to        ?? route.to,
     noOfBuses: data.noOfBuses ?? route.noOfBuses,
     avgTime:   data.avgTime   ?? route.avgTime,
-    stopList:  data.stopList  ?? route.stopList,
+    isActive:  data.isActive  !== undefined ? data.isActive : route.isActive,
   });
 
-  // If stopList provided, replace route stops
+  // Replace route_stops only when a new stopList is provided
   if (Array.isArray(data.stopList)) {
     await RouteStop.destroy({ where: { routeId: route.id } });
     for (const item of data.stopList) {
       const stop = await Stop.findByPk(item.stopId);
       if (!stop) throw new ApiError(404, `Stop not found (id=${item.stopId})`);
       await RouteStop.create({
-        routeId: route.id,
-        stopId: item.stopId,
+        routeId:      route.id,
+        stopId:       item.stopId,
         stopSequence: item.stopSequence ?? 1,
-        time: item.time ?? null,
+        time:         item.time ?? null,
       });
     }
   }
@@ -106,14 +143,20 @@ const update = async (id, data) => {
   return getById(route.id);
 };
 
+// ─── suspend (toggle isActive) ────────────────────────────────────────────────
 const suspend = async (id) => {
-  const route = await getById(id);
+  // Must use a Sequelize model instance, NOT the plain object from getById()
+  const route = await Route.findByPk(id);
+  if (!route) throw new ApiError(404, "Route not found");
   await route.update({ isActive: !route.isActive });
-  return route;
+  return getById(id);
 };
 
+// ─── remove ───────────────────────────────────────────────────────────────────
 const remove = async (id) => {
-  const route = await getById(id);
+  const route = await Route.findByPk(id);
+  if (!route) throw new ApiError(404, "Route not found");
+  // route_stops rows are cascade-deleted via the FK onDelete: CASCADE
   await route.destroy();
 };
 
