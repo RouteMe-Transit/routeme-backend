@@ -1,19 +1,40 @@
 const { Op } = require("sequelize");
-const { Alert, User } = require("../models");
+const { Alert, User, BusDetails, Route } = require("../models");
 const ApiError = require("../utils/ApiError");
 
 let schedulerTimer = null;
 let schedulerRunning = false;
 
 const BUS_ALERT_TYPE_MAP = {
+  // common canonical forms
   delay: "delay",
   weather: "weather",
   breakdown: "breakdown",
   "not operating": "not operating",
-  not_operating: "not operating",
   accident: "accident",
   "road block": "road block",
-  road_block: "road block",
+  // variant forms the UI might send
+  not_operating: "not operating",
+  "road_block": "road block",
+  "road-block": "road block",
+  "service distruption": "service distruption",
+  "service-distruption": "service distruption",
+  "service-distruption": "service distruption",
+  "heavy rain": "heavy rain",
+  "heavy-rain": "heavy rain",
+  "damaged roads": "damaged roads",
+  "damaged-roads": "damaged roads",
+  "rule enforcement": "rule enforcement",
+  "rule-enforcement": "rule enforcement",
+  "new bus stop": "new bus stop",
+  "new-bus-stop": "new bus stop",
+  "removed bus stop": "removed bus stop",
+  "removed-bus-stop": "removed bus stop",
+  "route change": "route change",
+  "route-change": "route change",
+  "public events": "public events",
+  "public-events": "public events",
+  other: "other",
 };
 
 const BUS_ALERT_TEMPLATES = { //need to update descriptions to be more dynamic based on route and bus info
@@ -76,7 +97,13 @@ const getSubscribedRoutesArray = (subscribedRoutes) => {
 
 const normalizeBusAlertType = (alertType) => {
   const key = `${alertType || ""}`.trim().toLowerCase();
-  return BUS_ALERT_TYPE_MAP[key] || null;
+  // Try direct lookup first
+  if (BUS_ALERT_TYPE_MAP[key]) {
+    return BUS_ALERT_TYPE_MAP[key];
+  }
+  // If hyphenated, try with spaces
+  const spaced = key.replace(/-/g, ' ');
+  return BUS_ALERT_TYPE_MAP[spaced] || null;
 };
 
 const userSubscribedToRoute = (user, route) => {// Check if a passenger user is subscribed to a specific route (used for determining alert visibility)
@@ -143,6 +170,25 @@ const getRecipientCount = async (alert) => {
   return passengers.filter((user) => userSubscribedToRoute(user, alert.affectedRoute)).length;
 };
 
+const resolveRouteTarget = async (routeValue) => {
+  if (routeValue == null) return null;
+
+  const normalizedValue = `${routeValue}`.trim();
+  if (!normalizedValue) return null;
+
+  const routeId = Number(normalizedValue);
+  if (Number.isInteger(routeId) && `${routeId}` === normalizedValue) {
+    const route = await Route.findByPk(routeId);
+    if (!route) {
+      throw new ApiError(422, "Target route not found");
+    }
+
+    return route.routeName || `${route.id}`;
+  }
+
+  return normalizedValue;
+};
+
 const sendAlertNow = async (alert) => {
   const recipientCount = await getRecipientCount(alert);
 
@@ -166,6 +212,10 @@ const createAlert = async (data, adminId) => {
   const hasSchedule = !!data.scheduledAt;
   const scheduleDate = hasSchedule ? new Date(data.scheduledAt) : null;
   const normalizedAlertType = normalizeBusAlertType(data.alertType);
+  const description = `${data.description || data.content || ""}`.trim();
+  const targetRouteValue = data.targetRoute || data.affectedRoute || data.affectedBusOrRoute;
+  const resolvedRoute = await resolveRouteTarget(targetRouteValue);
+  const targetAudience = data.targetAudience || (resolvedRoute ? "route" : "public");
 
   if (hasSchedule && Number.isNaN(scheduleDate.getTime())) {
     throw new ApiError(422, "Invalid schedule date/time");
@@ -177,11 +227,11 @@ const createAlert = async (data, adminId) => {
 
   const payload = {
     alertType: normalizedAlertType,
-    affectedRoute: data.targetRoute || data.affectedRoute || null,
+    affectedRoute: resolvedRoute,
     affectedBus: data.affectedBus || null,
     title: data.title,
-    description: data.description,
-    targetAudience: data.targetAudience,
+    description,
+    targetAudience,
     scheduledAt: hasSchedule ? scheduleDate : null,
     status: hasSchedule && scheduleDate > now ? "scheduled" : "sent",
     sentAt: hasSchedule && scheduleDate > now ? null : now,
@@ -206,8 +256,22 @@ const createBusRouteAlert = async ({ alertType, busUser }) => {
     throw new ApiError(403, "Only bus users can send bus alerts");
   }
 
-  if (!busUser.assignedRoute) {
-    throw new ApiError(422, "Bus user does not have an assignedRoute");
+  // Find BusDetails for this bus user
+  const busDetails = await BusDetails.findOne({ where: { userId: busUser.id } });
+  if (!busDetails) {
+    throw new ApiError(422, "Bus details not found for this user");
+  }
+
+  // Get the assigned route ID
+  const routeId = busDetails.routeId;
+  if (!routeId) {
+    throw new ApiError(422, "Bus does not have an assigned route");
+  }
+
+  // Fetch the route details
+  const route = await Route.findByPk(routeId);
+  if (!route) {
+    throw new ApiError(422, "Assigned route not found");
   }
 
   const normalizedAlertType = normalizeBusAlertType(alertType);
@@ -216,14 +280,14 @@ const createBusRouteAlert = async ({ alertType, busUser }) => {
   }
 
   const template = BUS_ALERT_TEMPLATES[normalizedAlertType];
-  const route = busUser.assignedRoute;
+  const routeName = route.routeName || `Route ${routeId}`;
 
   const alert = await Alert.create({
     alertType: normalizedAlertType,
-    affectedRoute: route,
-    affectedBus: `${busUser.id}`,
+    affectedRoute: routeName,
+    affectedBus: busDetails.registrationNumber,
     title: template.title,
-    description: template.description(route),
+    description: template.description(routeName),
     targetAudience: "route",
     status: "sent",
     sentAt: new Date(),
@@ -276,9 +340,37 @@ const getAlertHistoryByAdmin = async ({ page = 1, limit = 10, status, createdBy 
   const parsedLimit = parseInt(limit || 10, 10);
   const offset = (parsedPage - 1) * parsedLimit;
 
-  const where = { isDeleted: false };
+  const adminUsers = await User.findAll({
+    where: { role: "admin" },
+    attributes: ["id"],
+  });
+
+  const adminIds = adminUsers.map((user) => user.id);
+
+  if (!adminIds.length) {
+    return {
+      total: 0,
+      page: parsedPage,
+      totalPages: 0,
+      alerts: []
+    };
+  }
+
+  const where = { isDeleted: false, createdBy: { [Op.in]: adminIds } };
   if (status) where.status = status;
-  if (createdBy) where.createdBy = createdBy;
+  if (createdBy) {
+    const requestedCreatorId = parseInt(createdBy, 10);
+    if (Number.isNaN(requestedCreatorId) || !adminIds.includes(requestedCreatorId)) {
+      return {
+        total: 0,
+        page: parsedPage,
+        totalPages: 0,
+        alerts: []
+      };
+    }
+
+    where.createdBy = requestedCreatorId;
+  }
 
   const { count, rows } = await Alert.findAndCountAll({
     where,
@@ -319,12 +411,111 @@ const getAlertHistoryByBus = async ({ page = 1, limit = 10, busId } = {}) => {
   };
 };
 
+const attachCreatorInfo = async (alerts = []) => {
+  if (!alerts.length) return [];
+
+  const creatorIds = [...new Set(alerts.map((alert) => alert.createdBy).filter(Boolean))];
+  if (!creatorIds.length) return alerts.map((alert) => alert.toJSON());
+
+  const creators = await User.findAll({
+    where: { id: { [Op.in]: creatorIds } },
+    attributes: ["id", "firstName", "lastName", "role"],
+  });
+
+  const creatorMap = new Map(creators.map((user) => [user.id, user]));
+  const busUserIds = creators.filter((user) => user.role === "bus").map((user) => user.id);
+
+  const busDetails = busUserIds.length
+    ? await BusDetails.findAll({
+      where: { userId: { [Op.in]: busUserIds } },
+      attributes: ["userId", "registrationNumber"],
+    })
+    : [];
+
+  const busRegMap = new Map(busDetails.map((bus) => [bus.userId, bus.registrationNumber]));
+
+  return alerts.map((alert) => {
+    const row = alert.toJSON();
+    const creator = creatorMap.get(alert.createdBy);
+
+    if (!creator) {
+      row.createdByInfo = {
+        type: "unknown",
+        userId: alert.createdBy,
+      };
+      return row;
+    }
+
+    if (creator.role === "admin") {
+      row.createdByInfo = {
+        type: "admin",
+        adminId: creator.id,
+        adminName: `${creator.firstName || ""} ${creator.lastName || ""}`.trim(),
+      };
+      return row;
+    }
+
+    if (creator.role === "bus") {
+      row.createdByInfo = {
+        type: "bus",
+        busId: creator.id,
+        registrationNumber: busRegMap.get(creator.id) || row.affectedBus || null,
+      };
+      return row;
+    }
+
+    row.createdByInfo = {
+      type: creator.role,
+      userId: creator.id,
+    };
+    return row;
+  });
+};
+
+const getAlertHistoryAllForAdmin = async ({ page = 1, limit = 10, status, createdBy } = {}) => {
+  const parsedPage = parseInt(page || 1, 10);
+  const parsedLimit = parseInt(limit || 10, 10);
+  const offset = (parsedPage - 1) * parsedLimit;
+
+  const where = { isDeleted: false };
+  if (status) where.status = status;
+  if (createdBy) {
+    const parsedCreatedBy = parseInt(createdBy, 10);
+    if (Number.isNaN(parsedCreatedBy)) {
+      return {
+        total: 0,
+        page: parsedPage,
+        totalPages: 0,
+        alerts: [],
+      };
+    }
+    where.createdBy = parsedCreatedBy;
+  }
+
+  const { count, rows } = await Alert.findAndCountAll({
+    where,
+    limit: parsedLimit,
+    offset,
+    order: [["createdAt", "DESC"]],
+  });
+
+  const alerts = await attachCreatorInfo(rows);
+
+  return {
+    total: count,
+    page: parsedPage,
+    totalPages: Math.ceil(count / parsedLimit),
+    alerts,
+  };
+};
+
 module.exports = {
   getAlertById,
   createAlert,
   createBusRouteAlert,
   getPassengerVisibleAlerts,
   getAlertHistoryByAdmin,
+  getAlertHistoryAllForAdmin,
   getAlertHistoryByBus,
   initAlertScheduler,
 };

@@ -166,7 +166,35 @@ const authValidation = {
 
 // ── Alert validations ─────────────────────────────────────────────────────────
 
-const ALERT_TYPES = ["delay", "weather", "breakdown", "not operating", "accident", "road block"];
+const ALERT_TYPES = [
+  // canonical forms (lowercase with spaces)
+  'service distruption',
+  'road block',
+  'delay',
+  'accident',
+  'breakdown',
+  'weather',
+  'not operating',
+  'heavy rain',
+  'damaged roads',
+  'rule enforcement',
+  'new bus stop',
+  'removed bus stop',
+  'route change',
+  'public events',
+  'other',
+  // hyphenated forms (from frontend)
+  'service-distruption',
+  'road-block',
+  'not-operating',
+  'heavy-rain',
+  'damaged-roads',
+  'rule-enforcement',
+  'new-bus-stop',
+  'removed-bus-stop',
+  'route-change',
+  'public-events',
+];
 
 const alertValidation = {
   create: [
@@ -175,23 +203,35 @@ const alertValidation = {
       .bail()
       .isIn(ALERT_TYPES).withMessage("Invalid alert type"),
     body("title").trim().notEmpty().withMessage("Alert title is required"),
-    body("description").trim().notEmpty().withMessage("Description is required"),
-    body("targetAudience")
-      .notEmpty().withMessage("Target audience is required")
-      .bail()
-      .isIn(["public", "route"]).withMessage("Target audience must be public or route"),
+    body("description").optional({ nullable: true }).trim(),
+    body("content").optional({ nullable: true }).trim(),
+    body("targetAudience").optional({ nullable: true }).isIn(["public", "route"]).withMessage("Target audience must be public or route"),
     body("targetRoute").optional({ nullable: true }).trim(),
     body("affectedRoute")
       .optional({ nullable: true })
       .trim()
       .custom((value, { req }) => {
         const routeValue = req.body.targetRoute || value;
-        if (req.body.targetAudience === "route" && !routeValue)
+        const targetAudience = req.body.targetAudience || (routeValue ? "route" : "public");
+        if (targetAudience === "route" && !routeValue)
           throw new Error("Affected route is required when target audience is route");
         return true;
       }),
     body("affectedBus").optional({ nullable: true }).trim(),
     body("scheduledAt").optional({ nullable: true }).isISO8601().withMessage("Invalid schedule date/time"),
+    body().custom((_, { req }) => {
+      const hasDescription = !!`${req.body.description || req.body.content || ""}`.trim();
+      if (!hasDescription) throw new Error("Description is required");
+
+      const routeValue = req.body.targetRoute || req.body.affectedRoute;
+      const targetAudience = req.body.targetAudience || (routeValue ? "route" : "public");
+
+      if (targetAudience === "route" && !routeValue) {
+        throw new Error("Affected route is required when target audience is route");
+      }
+
+      return true;
+    }),
   ],
   busSend: [
     body("alertType")
