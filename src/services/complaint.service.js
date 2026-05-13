@@ -25,6 +25,7 @@ const getAllComplaints = async ({
     include: [
       {
         model: User,
+        as: "user",
         attributes: ["id", "firstName", "lastName", "email"],
       },
     ],
@@ -46,6 +47,7 @@ const getComplaintById = async (id) => {
     include: [
       {
         model: User,
+        as: "user",
         attributes: ["id", "firstName", "lastName", "email"],
       },
     ],
