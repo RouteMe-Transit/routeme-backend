@@ -308,6 +308,28 @@ const tripValidation = {
   ],
 };
 
+const complaintValidation = {
+  create: [
+    body("category").trim().notEmpty().withMessage("Category is required"),
+    body("busNumber").trim().notEmpty().withMessage("Bus number is required"),
+    body("description").trim().notEmpty().withMessage("Description is required"),
+  ],
+  updateStatus: [
+    body("status")
+      .isIn(["Pending", "Resolved"])
+      .withMessage("Status must be Pending or Resolved"),
+  ],
+};
+
+const feedbackValidation = {
+  create: [
+    body("category").trim().notEmpty().withMessage("Category is required"),
+    body("busNumber").trim().notEmpty().withMessage("Bus number is required"),
+    body("message").trim().notEmpty().withMessage("Message is required"),
+    body("rating").isInt({ min: 1, max: 5 }).withMessage("Rating must be between 1 and 5"),
+  ],
+};
+
 module.exports = {
   userValidation,
   busValidation,
@@ -317,4 +339,6 @@ module.exports = {
   authValidation,
   alertValidation,
   tripValidation,
+  complaintValidation,
+  feedbackValidation,
 };
