@@ -321,6 +321,15 @@ const complaintValidation = {
   ],
 };
 
+const feedbackValidation = {
+  create: [
+    body("category").trim().notEmpty().withMessage("Category is required"),
+    body("busNumber").trim().notEmpty().withMessage("Bus number is required"),
+    body("message").trim().notEmpty().withMessage("Message is required"),
+    body("rating").isInt({ min: 1, max: 5 }).withMessage("Rating must be between 1 and 5"),
+  ],
+};
+
 module.exports = {
   userValidation,
   busValidation,
@@ -331,4 +340,5 @@ module.exports = {
   alertValidation,
   tripValidation,
   complaintValidation,
+  feedbackValidation,
 };

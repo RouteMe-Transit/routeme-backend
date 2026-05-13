@@ -12,6 +12,7 @@ const tripRoutes      = require("./trip.routes");
 
 // your feature
 const complaintRoutes = require("./complaint.routes");
+const feedbackRoutes  = require("./feedback.routes");
 
 const router = Router();
 
@@ -30,6 +31,7 @@ router.use("/trips",      tripRoutes);
 
 // ── Your Feature ────────────────────────────────────────────
 router.use("/complaints", complaintRoutes);
+router.use("/feedbacks",  feedbackRoutes);
 
 // ── Test Route ───────────────────────────────────────────────
 router.get("/test", (req, res) =>
