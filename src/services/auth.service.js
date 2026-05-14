@@ -8,37 +8,126 @@ const generateToken = (payload) => {
   return jwt.sign(payload, config.jwt.secret, { expiresIn: config.jwt.expiresIn });
 };
 
-const login = async ({ email, phone, registrationNumber, password }) => {
+const login = async ({
+  email,
+  registrationNumber,
+  password,
+}) => {
   let user;
 
-  // Bus login ONLY with registration number
+  // =========================
+  // BUS LOGIN
+  // =========================
+  
   if (registrationNumber) {
-    const bus = await BusDetails.findOne({ where: { registrationNumber } });
-    if (!bus) throw new ApiError(401, "Invalid credentials");
-    user = await User.scope("withPassword").findByPk(bus.userId);
-  } else if (email || phone) {
-    // Regular user login with email or phone (NOT for buses)
-    user = email ? await userService.getUserByEmail(email) : await userService.getUserByPhone(phone);
-    
-    // Prevent bus users from logging in with email/phone
-    if (user && user.role === "bus") {
-      throw new ApiError(401, "Bus accounts must log in using registration number and password");
+    const bus = await BusDetails.findOne({
+      where: { registrationNumber },
+    });
+
+
+    if (!bus) {
+      throw new ApiError(
+        401,
+        "Invalid registration number or password"
+      );
     }
-  } else {
-    throw new ApiError(401, "Invalid credentials");
+
+    user = await User.scope("withPassword").findByPk(
+      bus.userId
+    );
+
+    if (!user) {
+      throw new ApiError(
+        401,
+        "Bus account not found"
+      );
+    }
+
+    // Ensure role is bus
+    if (user.role !== "bus") {
+      throw new ApiError(
+        401,
+        "Invalid bus account"
+      );
+    }
   }
 
-  if (!user) throw new ApiError(401, "Invalid credentials");
+  // =========================
+  // EMAIL LOGIN
+  // =========================
+  else if (email) {
+    user = await userService.getUserByEmail(email);
 
-  const isMatch = await user.comparePassword(password);
-  if (!isMatch) throw new ApiError(401, "Invalid credentials");
+    if (!user) {
+      throw new ApiError(
+        401,
+        "Invalid email or password"
+      );
+    }
 
-  if (!user.isActive) throw new ApiError(403, "Account is deactivated");
+    if (user.role === "bus") {
+      throw new ApiError(
+        401,
+        "Bus accounts must login using registration number"
+      );
+    }
 
-  const token = generateToken({ id: user.id, role: user.role });
+    user = await User.scope("withPassword").findByPk(
+      user.id
+    );
+  }
 
-  const { password: _, ...userWithoutPassword } = user.toJSON();
-  return { token, user: userWithoutPassword };
+  // =========================
+  // INVALID
+  // =========================
+  else {
+    throw new ApiError(
+      401,
+      "Invalid credentials"
+    );
+  }
+
+  // =========================
+  // PASSWORD CHECK
+  // =========================
+  const isMatch = await user.comparePassword(
+    password
+  );
+
+  if (!isMatch) {
+    throw new ApiError(
+      401,
+      "Invalid credentials"
+    );
+  }
+
+  // =========================
+  // ACTIVE CHECK
+  // =========================
+  if (!user.isActive) {
+    throw new ApiError(
+      403,
+      "Account is deactivated"
+    );
+  }
+
+  // =========================
+  // TOKEN
+  // =========================
+  const token = generateToken({
+    id: user.id,
+    role: user.role,
+  });
+
+  const {
+    password: _,
+    ...userWithoutPassword
+  } = user.toJSON();
+
+  return {
+    token,
+    user: userWithoutPassword,
+  };
 };
 
 const register = async (data) => {
