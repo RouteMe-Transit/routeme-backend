@@ -139,15 +139,34 @@ const newsValidation = {
 
 const authValidation = {
   login: [
-    body("email").optional().isEmail().normalizeEmail().withMessage("Valid email is required"),
-    body("phone").optional().trim(),
-    body("registrationNumber").optional().trim(),
+    body("email")
+      .optional()
+      .isEmail()
+      .normalizeEmail()
+      .withMessage("Valid email is required"),
+
+    body("registrationNumber")
+      .optional()
+      .trim()
+      .notEmpty()
+      .withMessage("Registration number is required"),
+
     body().custom((value) => {
-      if (!value || (!value.email && !value.phone && !value.registrationNumber))
-        throw new Error("Either email, phone, or registration number is required");
+      if (
+        !value ||
+        (!value.email && !value.registrationNumber)
+      ) {
+        throw new Error(
+          "Either email or registration number is required"
+        );
+      }
+
       return true;
     }),
-    body("password").notEmpty().withMessage("Password is required"),
+
+    body("password")
+      .notEmpty()
+      .withMessage("Password is required"),
   ],
   register: [
     body("firstName").trim().notEmpty().withMessage("First name is required"),
@@ -244,7 +263,7 @@ const alertValidation = {
 // ── Trip validations ──────────────────────────────────────────────────────────
 
 const TRIP_STATUSES = ["active", "scheduled", "delayed", "completed", "cancelled"];
-const VALID_DAYS    = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+const VALID_DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
 const isValidDaysArray = (value) => {
   if (!Array.isArray(value)) throw new Error("days must be an array");
