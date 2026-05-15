@@ -23,6 +23,12 @@ const sendBusAlert = async (req, res, next) => {
     const alert = await alertService.createBusRouteAlert({
       alertType: req.body.alertType,
       busUser: req.user,
+      title: req.body.title,
+      description: req.body.description || req.body.content,
+      affectedBus: req.body.affectedBus,
+      affectedRoute: req.body.affectedRoute,
+      targetAudience: req.body.targetAudience,
+      targetRoute: req.body.targetRoute,
     });
 
     ApiResponse.created(res, alert, "Bus alert sent successfully");
