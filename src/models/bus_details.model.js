@@ -26,7 +26,7 @@ const BusDetails = sequelize.define(
     registrationNumber: {
       type: DataTypes.STRING(20),
       allowNull: false,
-      unique: true,
+      unique: "bus_details_registration_number_unique",
     },
     busType: {
       type: DataTypes.ENUM("A/C Express", "Semi-Luxury", "Regular"),
@@ -83,7 +83,7 @@ const BusDetails = sequelize.define(
     indexes: [
       { fields: ["userId"] },
       { fields: ["routeId"] },
-      { fields: ["registrationNumber"], unique: true },
+      { fields: ["registrationNumber"], unique: true, name: "bus_details_registration_number_unique" },
     ],
   }
 );

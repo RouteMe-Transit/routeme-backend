@@ -225,7 +225,7 @@ const alertValidation = {
     body("description").optional({ nullable: true }).trim(),
     body("content").optional({ nullable: true }).trim(),
     body("targetAudience").optional({ nullable: true }).isIn(["public", "route"]).withMessage("Target audience must be public or route"),
-    body("targetRoute").optional({ nullable: true }).trim(),
+    body("targetRoute").optional({ nullable: true }).isInt().toInt().withMessage("Target route must be a number"),
     body("affectedRoute")
       .optional({ nullable: true })
       .trim()
@@ -239,9 +239,6 @@ const alertValidation = {
     body("affectedBus").optional({ nullable: true }).trim(),
     body("scheduledAt").optional({ nullable: true }).isISO8601().withMessage("Invalid schedule date/time"),
     body().custom((_, { req }) => {
-      const hasDescription = !!`${req.body.description || req.body.content || ""}`.trim();
-      if (!hasDescription) throw new Error("Description is required");
-
       const routeValue = req.body.targetRoute || req.body.affectedRoute;
       const targetAudience = req.body.targetAudience || (routeValue ? "route" : "public");
 
@@ -255,8 +252,14 @@ const alertValidation = {
   busSend: [
     body("alertType")
       .trim().notEmpty().withMessage("Alert type is required")
-      .bail()
-      .isIn(ALERT_TYPES).withMessage("Invalid alert type"),
+      .bail(),
+    body("title").optional({ nullable: true }).trim(),
+    body("description").optional({ nullable: true }).trim(),
+    body("content").optional({ nullable: true }).trim(),
+    body("targetAudience").optional({ nullable: true }).isIn(["public", "route"]).withMessage("Target audience must be public or route"),
+    body("targetRoute").optional({ nullable: true }).isInt().toInt().withMessage("Target route must be a number"),
+    body("affectedRoute").optional({ nullable: true }).trim(),
+    body("affectedBus").optional({ nullable: true }).trim(),
   ],
 };
 
