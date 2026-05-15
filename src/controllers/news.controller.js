@@ -1,7 +1,8 @@
 const { validationResult } = require("express-validator");
+
 const newsService = require("../services/news.service");
 const ApiResponse = require("../utils/ApiResponse");
-const ApiError = require("../utils/ApiError");
+const ApiError    = require("../utils/ApiError");
 
 const getAll = async (req, res, next) => {
   try {
@@ -27,7 +28,8 @@ const create = async (req, res, next) => {
     const errors = validationResult(req);
     if (!errors.isEmpty()) throw new ApiError(422, "Validation failed", errors.array());
 
-    const news = await newsService.createNews(req.body);
+    // req.file is set by multer; undefined when no image uploaded
+    const news = await newsService.createNews(req.body, req.file);
     ApiResponse.created(res, news);
   } catch (err) {
     next(err);
@@ -39,7 +41,7 @@ const update = async (req, res, next) => {
     const errors = validationResult(req);
     if (!errors.isEmpty()) throw new ApiError(422, "Validation failed", errors.array());
 
-    const news = await newsService.updateNews(req.params.id, req.body);
+    const news = await newsService.updateNews(req.params.id, req.body, req.file);
     ApiResponse.success(res, news, "News updated successfully");
   } catch (err) {
     next(err);

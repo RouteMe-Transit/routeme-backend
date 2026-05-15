@@ -33,8 +33,9 @@ const News = sequelize.define(
       type: DataTypes.TEXT,
       allowNull: false,
     },
+    // TEXT instead of STRING(500) — stores full URL paths safely
     image: {
-      type: DataTypes.STRING(500),
+      type: DataTypes.TEXT,
       allowNull: true,
     },
   },
