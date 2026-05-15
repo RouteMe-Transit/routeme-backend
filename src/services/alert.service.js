@@ -5,6 +5,24 @@ const ApiError = require("../utils/ApiError");
 let schedulerTimer = null;
 let schedulerRunning = false;
 
+const buildAlertSearchConditions = (search) => {
+  const searchText = `${search || ""}`.trim();
+  const conditions = [
+    { alertType: { [Op.like]: `%${searchText}%` } },
+    { title: { [Op.like]: `%${searchText}%` } },
+    { description: { [Op.like]: `%${searchText}%` } },
+    { affectedRoute: { [Op.like]: `%${searchText}%` } },
+    { affectedBus: { [Op.like]: `%${searchText}%` } },
+  ];
+
+  const numericMatch = searchText.match(/\d+/);
+  if (numericMatch) {
+    conditions.push({ id: Number(numericMatch[0]) });
+  }
+
+  return conditions;
+};
+
 const BUS_ALERT_TYPE_MAP = {
   // common canonical forms
   delay: "delay",
@@ -374,7 +392,7 @@ const initAlertScheduler = () => {
   });
 };
 
-const getAlertHistoryByAdmin = async ({ page = 1, limit = 10, status, createdBy } = {}) => {
+const getAlertHistoryByAdmin = async ({ page = 1, limit = 10, status, createdBy, search } = {}) => {
   const parsedPage = parseInt(page || 1, 10);
   const parsedLimit = parseInt(limit || 10, 10);
   const offset = (parsedPage - 1) * parsedLimit;
@@ -397,6 +415,9 @@ const getAlertHistoryByAdmin = async ({ page = 1, limit = 10, status, createdBy 
 
   const where = { isDeleted: false, createdBy: { [Op.in]: adminIds } };
   if (status) where.status = status;
+  if (search) {
+    where[Op.or] = buildAlertSearchConditions(search);
+  }
   if (createdBy) {
     const requestedCreatorId = parseInt(createdBy, 10);
     if (Number.isNaN(requestedCreatorId) || !adminIds.includes(requestedCreatorId)) {
@@ -535,13 +556,16 @@ const attachCreatorInfo = async (alertOrAlerts = []) => {
   return Array.isArray(alertOrAlerts) ? mappedAlerts : mappedAlerts[0];
 };
 
-const getAlertHistoryAllForAdmin = async ({ page = 1, limit = 10, status, createdBy } = {}) => {
+const getAlertHistoryAllForAdmin = async ({ page = 1, limit = 10, status, createdBy, search } = {}) => {
   const parsedPage = parseInt(page || 1, 10);
   const parsedLimit = parseInt(limit || 10, 10);
   const offset = (parsedPage - 1) * parsedLimit;
 
   const where = { isDeleted: false };
   if (status) where.status = status;
+  if (search) {
+    where[Op.or] = buildAlertSearchConditions(search);
+  }
   if (createdBy) {
     const parsedCreatedBy = parseInt(createdBy, 10);
     if (Number.isNaN(parsedCreatedBy)) {
