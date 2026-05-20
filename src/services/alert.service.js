@@ -99,10 +99,29 @@ const generateBusMessage = ({ alertType, affectedBus, affectedRoute }) => {
   }
 };
 
-const getAlertById = async (id) => {// Admins can view any alert by ID, including scheduled and sent alerts
+const getAlertById = async (id, viewer = null) => {
   const alert = await Alert.findByPk(id);
   if (!alert || alert.isDeleted) throw new ApiError(404, "Alert not found");
+
+  if (viewer?.role === "passenger" && !canPassengerViewAlert(viewer, alert)) {
+    throw new ApiError(403, "You do not have permission to view this alert");
+  }
+
   const alertWithCreator = await attachCreatorInfo(alert);
+
+  if (viewer?.role === "passenger") {
+    const row = alertWithCreator?.toJSON ? alertWithCreator.toJSON() : { ...alertWithCreator };
+
+    return {
+      id: row.id,
+      title: row.title,
+      alertType: row.alertType,
+      affectedBus: row.affectedBus,
+      affectedRoute: row.affectedRoute,
+      sentAt: row.sentAt,
+      description: row.description,
+    };
+  }
 
   return {
     ...alertWithCreator,
@@ -152,6 +171,22 @@ const userSubscribedToRoute = (user, route) => {// Check if a passenger user is 
   }
 
   return subscribedRoutes.some((subscribedRoute) => normalizeRouteKey(subscribedRoute) === routeKey);// If any of the user's subscribed routes match the alert's affected route, the user should see the alert
+};
+
+const canPassengerViewAlert = (passenger, alert) => {
+  if (!passenger || passenger.role !== "passenger" || !alert) {
+    return false;
+  }
+
+  if (alert.isDeleted || alert.status !== "sent") {
+    return false;
+  }
+
+  if (alert.targetAudience === "public") {
+    return true;
+  }
+
+  return userSubscribedToRoute(passenger, alert.affectedRoute);
 };
 
 const getPassengerVisibleAlerts = async ({ passenger, page = 1, limit = 10 } = {}) => {
@@ -392,7 +427,7 @@ const initAlertScheduler = () => {
   });
 };
 
-const getAlertHistoryByAdmin = async ({ page = 1, limit = 10, status, createdBy, search } = {}) => {
+const getAlertHistoryByAdmin = async ({ page = 1, limit = 10, status, createdBy, creatorRole, search } = {}) => {
   const parsedPage = parseInt(page || 1, 10);
   const parsedLimit = parseInt(limit || 10, 10);
   const offset = (parsedPage - 1) * parsedLimit;
@@ -417,6 +452,24 @@ const getAlertHistoryByAdmin = async ({ page = 1, limit = 10, status, createdBy,
   if (status) where.status = status;
   if (search) {
     where[Op.or] = buildAlertSearchConditions(search);
+  }
+  if (creatorRole) {
+    const normalizedCreatorRole = `${creatorRole}`.trim().toLowerCase();
+    const creatorIds = await User.findAll({
+      where: { role: normalizedCreatorRole },
+      attributes: ["id"],
+    }).then((users) => users.map((user) => user.id));
+
+    if (!creatorIds.length) {
+      return {
+        total: 0,
+        page: parsedPage,
+        totalPages: 0,
+        alerts: [],
+      };
+    }
+
+    where.createdBy = { [Op.in]: creatorIds };
   }
   if (createdBy) {
     const requestedCreatorId = parseInt(createdBy, 10);
@@ -556,27 +609,73 @@ const attachCreatorInfo = async (alertOrAlerts = []) => {
   return Array.isArray(alertOrAlerts) ? mappedAlerts : mappedAlerts[0];
 };
 
-const getAlertHistoryAllForAdmin = async ({ page = 1, limit = 10, status, createdBy, search } = {}) => {
+const buildAlertHistoryWhere = async ({ status, createdBy, creatorRole, alertType, affectedRoute, search } = {}) => {
+  const where = { isDeleted: false };
+  let creatorIdFilter = null;
+
+  if (status) where.status = status;
+
+  if (alertType) {
+    where.alertType = `${alertType}`.trim().toLowerCase();
+  }
+
+  if (affectedRoute) {
+    where.affectedRoute = { [Op.like]: `%${`${affectedRoute}`.trim()}%` };
+  }
+
+  if (search) {
+    where[Op.or] = buildAlertSearchConditions(search);
+  }
+
+  if (creatorRole) {
+    const normalizedCreatorRole = `${creatorRole}`.trim().toLowerCase();
+    const creatorIds = await User.findAll({
+      where: { role: normalizedCreatorRole },
+      attributes: ["id"],
+    }).then((users) => users.map((user) => user.id));
+
+    if (!creatorIds.length) {
+      return null;
+    }
+
+    creatorIdFilter = creatorIds;
+  }
+
+  if (createdBy) {
+    const parsedCreatedBy = parseInt(createdBy, 10);
+    if (Number.isNaN(parsedCreatedBy)) {
+      return null;
+    }
+
+    if (creatorIdFilter && !creatorIdFilter.includes(parsedCreatedBy)) {
+      return null;
+    }
+
+    where.createdBy = parsedCreatedBy;
+    return where;
+  }
+
+  if (creatorIdFilter) {
+    where.createdBy = { [Op.in]: creatorIdFilter };
+  }
+
+  return where;
+};
+
+const getAlertHistoryAllForAdmin = async ({ page = 1, limit = 10, status, createdBy, creatorRole, alertType, affectedRoute, search } = {}) => {
   const parsedPage = parseInt(page || 1, 10);
   const parsedLimit = parseInt(limit || 10, 10);
   const offset = (parsedPage - 1) * parsedLimit;
 
-  const where = { isDeleted: false };
-  if (status) where.status = status;
-  if (search) {
-    where[Op.or] = buildAlertSearchConditions(search);
-  }
-  if (createdBy) {
-    const parsedCreatedBy = parseInt(createdBy, 10);
-    if (Number.isNaN(parsedCreatedBy)) {
-      return {
-        total: 0,
-        page: parsedPage,
-        totalPages: 0,
-        alerts: [],
-      };
-    }
-    where.createdBy = parsedCreatedBy;
+  const where = await buildAlertHistoryWhere({ status, createdBy, creatorRole, alertType, affectedRoute, search });
+
+  if (!where) {
+    return {
+      total: 0,
+      page: parsedPage,
+      totalPages: 0,
+      alerts: [],
+    };
   }
 
   const { count, rows } = await Alert.findAndCountAll({
