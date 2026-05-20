@@ -39,7 +39,7 @@ const sendBusAlert = async (req, res, next) => {
 
 const getById = async (req, res, next) => {
   try {
-    const alert = await alertService.getAlertById(req.params.id);
+    const alert = await alertService.getAlertById(req.params.id, req.user);
     ApiResponse.success(res, alert);
   } catch (err) {
     next(err);
@@ -48,11 +48,11 @@ const getById = async (req, res, next) => {
 
 const getHistory = async (req, res, next) => {
   try {
-    const { page, limit, status, createdBy, search } = req.query;
+    const { page, limit, status, createdBy, creatorRole, alertType, affectedRoute, search } = req.query;
     // If a search term is provided, search across all alerts (not only admin-created)
     const result = search
-      ? await alertService.getAlertHistoryAllForAdmin({ page, limit, status, createdBy, search })
-      : await alertService.getAlertHistoryByAdmin({ page, limit, status, createdBy });
+      ? await alertService.getAlertHistoryAllForAdmin({ page, limit, status, createdBy, creatorRole, alertType, affectedRoute, search })
+      : await alertService.getAlertHistoryByAdmin({ page, limit, status, createdBy, creatorRole });
     ApiResponse.success(res, result);
   } catch (err) {
     next(err);
@@ -61,8 +61,8 @@ const getHistory = async (req, res, next) => {
 
 const getAllHistory = async (req, res, next) => {
   try {
-    const { page, limit, status, createdBy, search } = req.query;
-    const result = await alertService.getAlertHistoryAllForAdmin({ page, limit, status, createdBy, search });
+    const { page, limit, status, createdBy, creatorRole, alertType, affectedRoute, search } = req.query;
+    const result = await alertService.getAlertHistoryAllForAdmin({ page, limit, status, createdBy, creatorRole, alertType, affectedRoute, search });
     ApiResponse.success(res, result);
   } catch (err) {
     next(err);
