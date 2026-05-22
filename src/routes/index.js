@@ -1,5 +1,6 @@
 
 const { Router } = require("express");
+<<<<<<< HEAD
 const authRoutes = require("./auth.routes");
 const userRoutes = require("./user.routes");
 const newsRoutes = require("./news.routes");
@@ -13,5 +14,49 @@ router.use("/users", userRoutes);
 router.use("/news", newsRoutes);
 router.use("/buses", busRoutes);
 router.use("/routes", routeRoutes);
+=======
+
+const authRoutes      = require("./auth.routes");
+const userRoutes      = require("./user.routes");
+const newsRoutes      = require("./news.routes");
+const alertRoutes     = require("./alert.routes");
+const busRoutes       = require("./bus.routes");
+const busTripRoutes   = require("./bus-trip.routes");
+const routeRoutes     = require("./route.routes");
+const stopRoutes      = require("./stop.routes");
+const tripRoutes      = require("./trip.routes");
+
+// your feature
+const complaintRoutes = require("./complaint.routes");
+const feedbackRoutes  = require("./feedback.routes");
+
+const router = Router();
+
+// ── Core Routes ─────────────────────────────────────────────
+router.use("/auth",      authRoutes);
+router.use("/users",     userRoutes);
+router.use("/news",      newsRoutes);
+>>>>>>> f0ab595431ff891989485c94bb5c10ae7be63db7
+
+// ── System Routes ───────────────────────────────────────────
+router.use("/alerts",     alertRoutes);
+router.use("/buses",      busRoutes);
+router.use("/bus-trips",  busTripRoutes);
+router.use("/routes",     routeRoutes);
+router.use("/stops",      stopRoutes);
+router.use("/trips",      tripRoutes);
+
+// ── Your Feature ────────────────────────────────────────────
+router.use("/complaints", complaintRoutes);
+router.use("/feedbacks",  feedbackRoutes);
+
+// ── Test Route ───────────────────────────────────────────────
+router.get("/test", (req, res) =>
+  res.json({
+    success: true,
+    message: "API is working 🎉",
+    timestamp: new Date().toISOString()
+  })
+);
 
 module.exports = router;

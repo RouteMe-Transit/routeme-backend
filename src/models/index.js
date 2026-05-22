@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 const sequelize = require("../config/database");
 
 // Import models
@@ -14,17 +15,78 @@ Bus.belongsTo(User, { foreignKey: "assignDriver", as: "driver" });
 User.hasMany(Bus, { foreignKey: "assignDriver", as: "assignedBuses" });
 
 // Sync function
+=======
+const sequelize  = require("../config/database");
+
+const User       = require("./user.model");
+const News       = require("./news.model");
+const Alert      = require("./alerts.model");
+const BusDetails = require("./bus_details.model");
+const Route      = require("./route.model");
+const Stop       = require("./stop.model");
+const RouteStop  = require("./route_stops.model");
+const Trip       = require("./trip.model");
+const Complaint  = require("./complaint.model");
+const Feedback   = require("./feedback.model");
+
+// ── User ↔ BusDetails (one-to-one via userId)
+User.hasOne(BusDetails,    { foreignKey: "userId", as: "busDetails" });
+BusDetails.belongsTo(User, { foreignKey: "userId", as: "user" });
+
+// ── User ↔ Complaint (one-to-many)
+User.hasMany(Complaint, { foreignKey: "userId", as: "complaints" });
+Complaint.belongsTo(User, { foreignKey: "userId", as: "user" });
+
+// ── User ↔ Feedback (one-to-many)
+User.hasMany(Feedback, { foreignKey: "userId", as: "feedbacks" });
+Feedback.belongsTo(User, { foreignKey: "userId", as: "user" });
+
+// ── Route ↔ BusDetails (one-to-many via routeId)
+Route.hasMany(BusDetails,   { foreignKey: "routeId", as: "buses" });
+BusDetails.belongsTo(Route, { foreignKey: "routeId", as: "route" });
+
+// ── Route ↔ RouteStop (one-to-many) and RouteStop ↔ Stop (many-to-one)
+Route.hasMany(RouteStop,   { foreignKey: "routeId", as: "routeStops" });
+RouteStop.belongsTo(Route, { foreignKey: "routeId", as: "route" });
+
+RouteStop.belongsTo(Stop,  { foreignKey: "stopId", as: "stop" });
+Stop.hasMany(RouteStop,    { foreignKey: "stopId", as: "routeStops" });
+
+// ── Trip associations
+Route.hasMany(Trip,        { foreignKey: "routeId", as: "trips" });
+Trip.belongsTo(Route,      { foreignKey: "routeId", as: "route" });
+
+BusDetails.hasMany(Trip,   { foreignKey: "busId", as: "trips" });
+Trip.belongsTo(BusDetails, { foreignKey: "busId", as: "bus" });
+
+// ── Sync DB
+>>>>>>> f0ab595431ff891989485c94bb5c10ae7be63db7
 const syncDatabase = async () => {
-  await sequelize.sync({ alter: process.env.NODE_ENV === "development" });
-  console.log("Database synced successfully");
+  await sequelize.sync({ alter: true });
+  console.log("✅ Database synced successfully");
 };
 
+<<<<<<< HEAD
 // ✅ EXPORT ONLY ONCE — AT THE END
+=======
+>>>>>>> f0ab595431ff891989485c94bb5c10ae7be63db7
 module.exports = {
   sequelize,
   syncDatabase,
   User,
   News,
+<<<<<<< HEAD
   Bus,
   Route,
 };
+=======
+  Alert,
+  BusDetails,
+  Route,
+  Stop,
+  RouteStop,
+  Trip,
+  Complaint,
+  Feedback,
+};
+>>>>>>> f0ab595431ff891989485c94bb5c10ae7be63db7

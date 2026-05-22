@@ -10,7 +10,8 @@ router.use(authenticate);
 router.get("/", authorize("admin"), userController.getAll);
 router.get("/:id", authorize("admin"), userController.getById);
 router.post("/", authorize("admin"), userValidation.create, userController.create);
-router.put("/:id", authorize("admin"), userValidation.update, userController.update);
+router.put("/me/subscriptions", authorize("passenger"), userValidation.updateSubscriptions, userController.updateMySubscriptions);// Passengers can update their own subscribed routes
+router.put("/:id", authorize("admin"), userValidation.update, userController.update); 
 router.delete("/:id", authorize("admin"), userController.remove);
 
 module.exports = router;
