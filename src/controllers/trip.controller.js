@@ -35,12 +35,10 @@ const update = async (req, res, next) => {
   } catch (err) { next(err); }
 };
 
-const updateStatus = async (req, res, next) => {
+const toggleActive = async (req, res, next) => {
   try {
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) throw new ApiError(422, "Validation failed", errors.array());
-    const trip = await tripService.updateStatus(req.params.id, req.body.status);
-    ApiResponse.success(res, trip, "Trip status updated successfully");
+    const trip = await tripService.toggleActive(req.params.id);
+    ApiResponse.success(res, trip, `Trip ${trip.isActive ? "activated" : "deactivated"} successfully`);
   } catch (err) { next(err); }
 };
 
@@ -58,4 +56,4 @@ const getStats = async (req, res, next) => {
   } catch (err) { next(err); }
 };
 
-module.exports = { getAll, getById, create, update, updateStatus, remove, getStats };
+module.exports = { getAll, getById, create, update, toggleActive, remove, getStats };

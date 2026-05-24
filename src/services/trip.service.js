@@ -72,9 +72,12 @@ const create = async (data) => {
     departureTime: data.departureTime,
     arrivalTime:   data.arrivalTime,
     days:          data.days          ?? [],
-    status:        data.status        ?? "scheduled",
     isActive:      true,
   });
+
+  if (!trip.isActive) {
+    await trip.update({ isActive: true });
+  }
 
   return getById(trip.id);
 };
@@ -90,16 +93,17 @@ const update = async (id, data) => {
     departureTime: data.departureTime ?? trip.departureTime,
     arrivalTime:   data.arrivalTime   ?? trip.arrivalTime,
     days:          data.days          ?? trip.days,
-    status:        data.status        ?? trip.status,
   });
 
   return getById(trip.id);
 };
 
-const updateStatus = async (id, status) => {
+const toggleActive = async (id) => {
   const trip = await Trip.findByPk(id);
   if (!trip) throw new ApiError(404, "Trip not found");
-  await trip.update({ status });
+
+  await trip.update({ isActive: !trip.isActive });
+
   return getById(trip.id);
 };
 
@@ -121,4 +125,4 @@ const getStats = async () => {
   return { total, active, delayed, scheduled, completed, cancelled };
 };
 
-module.exports = { getAll, getById, create, update, updateStatus, remove, getStats };
+module.exports = { getAll, getById, create, update, toggleActive, remove, getStats };
