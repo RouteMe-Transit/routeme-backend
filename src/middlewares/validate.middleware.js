@@ -265,7 +265,6 @@ const alertValidation = {
 
 // ── Trip validations ──────────────────────────────────────────────────────────
 
-const TRIP_STATUSES = ["active", "scheduled", "delayed", "completed", "cancelled"];
 const VALID_DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
 const isValidDaysArray = (value) => {
@@ -299,9 +298,6 @@ const tripValidation = {
     body("days")
       .optional()
       .custom(isValidDaysArray),
-    body("status")
-      .optional()
-      .isIn(TRIP_STATUSES).withMessage(`status must be one of: ${TRIP_STATUSES.join(", ")}`),
   ],
   update: [
     body("routeId").optional().isInt({ min: 1 }).withMessage("routeId must be a positive integer"),
@@ -318,15 +314,6 @@ const tripValidation = {
     body("days")
       .optional()
       .custom(isValidDaysArray),
-    body("status")
-      .optional()
-      .isIn(TRIP_STATUSES).withMessage(`status must be one of: ${TRIP_STATUSES.join(", ")}`),
-  ],
-  updateStatus: [
-    body("status")
-      .notEmpty().withMessage("status is required")
-      .bail()
-      .isIn(TRIP_STATUSES).withMessage(`status must be one of: ${TRIP_STATUSES.join(", ")}`),
   ],
 };
 

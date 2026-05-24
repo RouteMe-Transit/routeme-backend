@@ -11,7 +11,8 @@ router.get("/",              c.getAll);
 router.get("/:id",           c.getById);
 router.post("/",             tripValidation.create,       c.create);
 router.put("/:id",           tripValidation.update,       c.update);
-router.patch("/:id/status",  tripValidation.updateStatus, c.updateStatus);
+// Admins are not allowed to change trip status directly; buses control their own trip progress.
+router.patch("/:id/toggle",   c.toggleActive);
 router.delete("/:id",        c.remove);
 
 module.exports = router;

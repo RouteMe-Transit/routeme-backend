@@ -4,6 +4,7 @@ const app = require("./src/app");
 const { sequelize, syncDatabase } = require("./src/models");
 const config = require("./src/config");
 const { initAlertScheduler } = require("./src/services/alert.service");
+const { initDailyTripReset } = require("./src/services/scheduler.service");
 
 const PORT = config.port || 5000;
 
@@ -20,6 +21,10 @@ const start = async () => {
     if (initAlertScheduler) {
       initAlertScheduler();
       console.log("✅ Alert scheduler initialized");
+    }
+
+    if (initDailyTripReset) {
+      initDailyTripReset();
     }
 
     app.listen(PORT, () => {

@@ -3,6 +3,54 @@ const { Op, where, literal } = require("sequelize");
 const { Trip, Route, BusDetails, RouteStop, Stop } = require("../models");
 const ApiError = require("../utils/ApiError");
 
+const STATUS_LABELS = {
+  scheduled: "start",
+  active: "ongoing",
+  delayed: "ongoing",
+  completed: "finished",
+  cancelled: "cancelled",
+};
+
+const STATUS_UPDATES = {
+  start: "active",
+  active: "active",
+  ongoing: "active",
+  finish: "completed",
+  finished: "completed",
+  completed: "completed",
+  delayed: "delayed",
+  cancelled: "cancelled",
+};
+
+const STORED_STATUS_ALIASES = {
+  start: "scheduled",
+  upcoming: "scheduled",
+  ongoing: "active",
+  finish: "completed",
+  finished: "completed",
+};
+
+const getStatusLabel = (status) => STATUS_LABELS[status] ?? status;
+
+const normalizeStatusUpdate = (status) => STATUS_UPDATES[status] ?? status;
+
+const normalizeStoredTripStatus = (status) => STORED_STATUS_ALIASES[status] ?? status;
+
+const getEffectiveTripStatus = (trip) => {
+  if (!trip) return null;
+
+  const startOfToday = new Date();
+  startOfToday.setHours(0, 0, 0, 0);
+  const updatedAt = trip.updatedAt ? new Date(trip.updatedAt) : null;
+  const normalizedStoredStatus = normalizeStoredTripStatus(trip.status);
+
+  if (normalizedStoredStatus === "completed" && updatedAt && updatedAt < startOfToday) {
+    return "scheduled";
+  }
+
+  return normalizedStoredStatus;
+};
+
 // Get today's trips for a specific bus
 const getTodayTrips = async (busId) => {
   const bus = await BusDetails.findByPk(busId);
@@ -28,16 +76,36 @@ const getTodayTrips = async (busId) => {
     busId,
     registrationNumber: bus.registrationNumber,
     todayDay,
-    trips: trips.map((trip) => ({
-      id: trip.id,
-      tripNumber: trip.id,
-      routeName: trip.route.routeName,
-      direction: `${trip.route.from} - ${trip.route.to}`,
-      departureTime: trip.departureTime,
-      arrivalTime: trip.arrivalTime,
-      status: trip.status,
-      isActive: trip.isActive,
-    })),
+    trips: trips.map((trip) => {
+      // treat completed trips from previous days as scheduled for today
+      const startOfToday = new Date();
+      startOfToday.setHours(0, 0, 0, 0);
+      const lastUpdate = trip.updatedAt ? new Date(trip.updatedAt) : null;
+      const normalizedStoredStatus = normalizeStoredTripStatus(trip.status);
+
+      let displayStatus = normalizedStoredStatus;
+      if (normalizedStoredStatus === "completed" && lastUpdate && lastUpdate < startOfToday) {
+        displayStatus = "scheduled";
+      }
+
+      return {
+        id: trip.id,
+        tripNumber: trip.id,
+        routeName: trip.route.routeName,
+        direction: `${trip.route.from} - ${trip.route.to}`,
+        departureTime: trip.departureTime,
+        arrivalTime: trip.arrivalTime,
+        status: normalizedStoredStatus,
+        displayStatus,
+        statusLabel: getStatusLabel(displayStatus),
+        nextStatusLabel: displayStatus === "scheduled"
+          ? "ongoing"
+          : displayStatus === "active" || displayStatus === "delayed"
+            ? "finished"
+            : null,
+        isActive: trip.isActive,
+      };
+    }),
   };
 };
 
@@ -59,6 +127,11 @@ const getTripStops = async (tripId, busId) => {
     order: [["stopSequence", "ASC"]],
   });
 
+  // reverse stop order for return trips so sequence reflects travel direction
+  const stopsOrdered = trip.direction === "return"
+    ? routeStops.slice().reverse()
+    : routeStops;
+
   return {
     tripId: trip.id,
     tripNumber: trip.id,
@@ -69,8 +142,9 @@ const getTripStops = async (tripId, busId) => {
     departureTime: trip.departureTime,
     arrivalTime: trip.arrivalTime,
     currentStatus: trip.status,
-    stops: routeStops.map((rs) => ({
-      sequence: rs.stopSequence,
+    statusLabel: getStatusLabel(trip.status),
+    stops: stopsOrdered.map((rs, idx) => ({
+      sequence: idx + 1,
       stopId: rs.stopId,
       stopName: rs.stop.stopName,
       latitude: rs.stop.latitude,
@@ -88,30 +162,76 @@ const updateTripStatus = async (tripId, busId, newStatus) => {
   if (!trip) throw new ApiError(404, "Trip not found");
   if (trip.busId !== busId) throw new ApiError(403, "This bus is not assigned to this trip");
 
+  const targetStatus = normalizeStatusUpdate(newStatus);
+  const currentStatus = getEffectiveTripStatus(trip);
+
   // Validate status transition
   const validStatuses = ["scheduled", "active", "delayed", "completed", "cancelled"];
-  if (!validStatuses.includes(newStatus)) {
+  if (!validStatuses.includes(targetStatus)) {
+    console.warn("[bus-trip] invalid requested status", {
+      tripId,
+      busId,
+      requestedStatus: newStatus,
+      normalizedStatus: targetStatus,
+      currentDbStatus: trip.status,
+      normalizedStoredStatus: normalizeStoredTripStatus(trip.status),
+    });
     throw new ApiError(422, `Invalid status. Must be one of: ${validStatuses.join(", ")}`);
   }
 
   // Allow transition: scheduled -> active, active -> completed
-  if (trip.status === "scheduled" && newStatus !== "active") {
+  if (currentStatus === "scheduled" && targetStatus !== "active") {
+    console.warn("[bus-trip] invalid transition from scheduled", {
+      tripId,
+      busId,
+      requestedStatus: newStatus,
+      normalizedStatus: targetStatus,
+      currentDbStatus: trip.status,
+      normalizedStoredStatus: normalizeStoredTripStatus(trip.status),
+      effectiveCurrentStatus: currentStatus,
+    });
     throw new ApiError(422, "Can only change from scheduled to active");
   }
-  if (trip.status === "active" && !["completed", "delayed", "cancelled"].includes(newStatus)) {
+  if (currentStatus === "active" && !["completed", "delayed", "cancelled"].includes(targetStatus)) {
+    console.warn("[bus-trip] invalid transition from active", {
+      tripId,
+      busId,
+      requestedStatus: newStatus,
+      normalizedStatus: targetStatus,
+      currentDbStatus: trip.status,
+      normalizedStoredStatus: normalizeStoredTripStatus(trip.status),
+      effectiveCurrentStatus: currentStatus,
+    });
     throw new ApiError(422, "Can only change from active to completed, delayed, or cancelled");
   }
-  if (trip.status === "completed") {
+  if (currentStatus === "completed") {
+    console.warn("[bus-trip] attempted update on completed trip", {
+      tripId,
+      busId,
+      requestedStatus: newStatus,
+      normalizedStatus: targetStatus,
+      currentDbStatus: trip.status,
+      normalizedStoredStatus: normalizeStoredTripStatus(trip.status),
+      effectiveCurrentStatus: currentStatus,
+    });
     throw new ApiError(422, "Cannot update a completed trip");
   }
 
-  await trip.update({ status: newStatus });
+  await trip.update({ status: targetStatus });
+  const updatedTrip = await Trip.findByPk(tripId, {
+    include: [
+      { model: Route, as: "route", attributes: ["id", "routeName", "from", "to"] },
+      { model: BusDetails, as: "bus", attributes: ["id", "registrationNumber", "busType"] },
+    ],
+  });
   
   return {
-    id: trip.id,
-    tripNumber: trip.id,
-    status: trip.status,
-    message: `Trip status changed to ${newStatus}`,
+    id: updatedTrip.id,
+    tripNumber: updatedTrip.id,
+    status: updatedTrip.status,
+    statusLabel: getStatusLabel(updatedTrip.status),
+    trip: updatedTrip,
+    message: `Trip status changed to ${targetStatus}`,
   };
 };
 
