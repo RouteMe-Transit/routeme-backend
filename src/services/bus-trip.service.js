@@ -22,9 +22,34 @@ const STATUS_UPDATES = {
   cancelled: "cancelled",
 };
 
+const STORED_STATUS_ALIASES = {
+  start: "scheduled",
+  upcoming: "scheduled",
+  ongoing: "active",
+  finish: "completed",
+  finished: "completed",
+};
+
 const getStatusLabel = (status) => STATUS_LABELS[status] ?? status;
 
 const normalizeStatusUpdate = (status) => STATUS_UPDATES[status] ?? status;
+
+const normalizeStoredTripStatus = (status) => STORED_STATUS_ALIASES[status] ?? status;
+
+const getEffectiveTripStatus = (trip) => {
+  if (!trip) return null;
+
+  const startOfToday = new Date();
+  startOfToday.setHours(0, 0, 0, 0);
+  const updatedAt = trip.updatedAt ? new Date(trip.updatedAt) : null;
+  const normalizedStoredStatus = normalizeStoredTripStatus(trip.status);
+
+  if (normalizedStoredStatus === "completed" && updatedAt && updatedAt < startOfToday) {
+    return "scheduled";
+  }
+
+  return normalizedStoredStatus;
+};
 
 // Get today's trips for a specific bus
 const getTodayTrips = async (busId) => {
@@ -56,9 +81,10 @@ const getTodayTrips = async (busId) => {
       const startOfToday = new Date();
       startOfToday.setHours(0, 0, 0, 0);
       const lastUpdate = trip.updatedAt ? new Date(trip.updatedAt) : null;
+      const normalizedStoredStatus = normalizeStoredTripStatus(trip.status);
 
-      let displayStatus = trip.status;
-      if (trip.status === "completed" && lastUpdate && lastUpdate < startOfToday) {
+      let displayStatus = normalizedStoredStatus;
+      if (normalizedStoredStatus === "completed" && lastUpdate && lastUpdate < startOfToday) {
         displayStatus = "scheduled";
       }
 
@@ -69,7 +95,7 @@ const getTodayTrips = async (busId) => {
         direction: `${trip.route.from} - ${trip.route.to}`,
         departureTime: trip.departureTime,
         arrivalTime: trip.arrivalTime,
-        status: trip.status,
+        status: normalizedStoredStatus,
         displayStatus,
         statusLabel: getStatusLabel(displayStatus),
         nextStatusLabel: displayStatus === "scheduled"
@@ -137,31 +163,74 @@ const updateTripStatus = async (tripId, busId, newStatus) => {
   if (trip.busId !== busId) throw new ApiError(403, "This bus is not assigned to this trip");
 
   const targetStatus = normalizeStatusUpdate(newStatus);
+  const currentStatus = getEffectiveTripStatus(trip);
 
   // Validate status transition
   const validStatuses = ["scheduled", "active", "delayed", "completed", "cancelled"];
   if (!validStatuses.includes(targetStatus)) {
+    console.warn("[bus-trip] invalid requested status", {
+      tripId,
+      busId,
+      requestedStatus: newStatus,
+      normalizedStatus: targetStatus,
+      currentDbStatus: trip.status,
+      normalizedStoredStatus: normalizeStoredTripStatus(trip.status),
+    });
     throw new ApiError(422, `Invalid status. Must be one of: ${validStatuses.join(", ")}`);
   }
 
   // Allow transition: scheduled -> active, active -> completed
-  if (trip.status === "scheduled" && targetStatus !== "active") {
+  if (currentStatus === "scheduled" && targetStatus !== "active") {
+    console.warn("[bus-trip] invalid transition from scheduled", {
+      tripId,
+      busId,
+      requestedStatus: newStatus,
+      normalizedStatus: targetStatus,
+      currentDbStatus: trip.status,
+      normalizedStoredStatus: normalizeStoredTripStatus(trip.status),
+      effectiveCurrentStatus: currentStatus,
+    });
     throw new ApiError(422, "Can only change from scheduled to active");
   }
-  if (trip.status === "active" && !["completed", "delayed", "cancelled"].includes(targetStatus)) {
+  if (currentStatus === "active" && !["completed", "delayed", "cancelled"].includes(targetStatus)) {
+    console.warn("[bus-trip] invalid transition from active", {
+      tripId,
+      busId,
+      requestedStatus: newStatus,
+      normalizedStatus: targetStatus,
+      currentDbStatus: trip.status,
+      normalizedStoredStatus: normalizeStoredTripStatus(trip.status),
+      effectiveCurrentStatus: currentStatus,
+    });
     throw new ApiError(422, "Can only change from active to completed, delayed, or cancelled");
   }
-  if (trip.status === "completed") {
+  if (currentStatus === "completed") {
+    console.warn("[bus-trip] attempted update on completed trip", {
+      tripId,
+      busId,
+      requestedStatus: newStatus,
+      normalizedStatus: targetStatus,
+      currentDbStatus: trip.status,
+      normalizedStoredStatus: normalizeStoredTripStatus(trip.status),
+      effectiveCurrentStatus: currentStatus,
+    });
     throw new ApiError(422, "Cannot update a completed trip");
   }
 
   await trip.update({ status: targetStatus });
+  const updatedTrip = await Trip.findByPk(tripId, {
+    include: [
+      { model: Route, as: "route", attributes: ["id", "routeName", "from", "to"] },
+      { model: BusDetails, as: "bus", attributes: ["id", "registrationNumber", "busType"] },
+    ],
+  });
   
   return {
-    id: trip.id,
-    tripNumber: trip.id,
-    status: trip.status,
-    statusLabel: getStatusLabel(trip.status),
+    id: updatedTrip.id,
+    tripNumber: updatedTrip.id,
+    status: updatedTrip.status,
+    statusLabel: getStatusLabel(updatedTrip.status),
+    trip: updatedTrip,
     message: `Trip status changed to ${targetStatus}`,
   };
 };

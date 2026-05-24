@@ -19,7 +19,7 @@ router.patch(
   "/:tripId/status",
   body("status")
     .notEmpty().withMessage("Status is required")
-    .isIn(["start", "ongoing", "finished"])
+    .isIn(["start", "ongoing", "finished", "active"])
     .withMessage("Invalid status"),
   c.updateTripStatus
 );
