@@ -38,6 +38,9 @@ const Route = sequelize.define(
   },
   {
     tableName: "routes",
+    indexes: [
+      { fields: ["routeName"] },
+    ],
   }
 );
 
