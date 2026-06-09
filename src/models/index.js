@@ -4,6 +4,7 @@ const User       = require("./user.model");
 const News       = require("./news.model");
 const Alert      = require("./alerts.model");
 const BusDetails = require("./bus_details.model");
+const BusLiveLocation = require("./bus_live_location.model");
 const Route      = require("./route.model");
 const Stop       = require("./stop.model");
 const RouteStop  = require("./route_stops.model");
@@ -26,6 +27,13 @@ Feedback.belongsTo(User, { foreignKey: "userId", as: "user" });
 // ── Route ↔ BusDetails (one-to-many via routeId)
 Route.hasMany(BusDetails,   { foreignKey: "routeId", as: "buses" });
 BusDetails.belongsTo(Route, { foreignKey: "routeId", as: "route" });
+
+// ── BusDetails/Route ↔ BusLiveLocation
+BusDetails.hasMany(BusLiveLocation,      { foreignKey: "busId", as: "liveLocations" });
+BusLiveLocation.belongsTo(BusDetails,    { foreignKey: "busId", as: "bus" });
+
+Route.hasMany(BusLiveLocation,           { foreignKey: "routeId", as: "liveLocations" });
+BusLiveLocation.belongsTo(Route,         { foreignKey: "routeId", as: "route" });
 
 // ── Route ↔ RouteStop (one-to-many) and RouteStop ↔ Stop (many-to-one)
 Route.hasMany(RouteStop,   { foreignKey: "routeId", as: "routeStops" });
@@ -54,6 +62,7 @@ module.exports = {
   News,
   Alert,
   BusDetails,
+  BusLiveLocation,
   Route,
   Stop,
   RouteStop,

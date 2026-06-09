@@ -339,6 +339,30 @@ const feedbackValidation = {
   ],
 };
 
+const liveTrackingValidation = {
+  uploadLocation: [
+    body("gpsOn").optional().isBoolean().withMessage("gpsOn must be a boolean"),
+    body("latitude")
+      .if(body("gpsOn").custom((value) => value !== false))
+      .notEmpty().withMessage("latitude is required when GPS is on")
+      .bail()
+      .isFloat({ min: -90, max: 90 }).withMessage("latitude must be between -90 and 90"),
+    body("longitude")
+      .if(body("gpsOn").custom((value) => value !== false))
+      .notEmpty().withMessage("longitude is required when GPS is on")
+      .bail()
+      .isFloat({ min: -180, max: 180 }).withMessage("longitude must be between -180 and 180"),
+    body("direction").optional({ nullable: true }).trim(),
+    body("timestamp").optional({ nullable: true }).isISO8601().withMessage("timestamp must be a valid ISO date"),
+    body("routeId").optional({ nullable: true }).isInt({ min: 1 }).withMessage("routeId must be a positive integer"),
+    body("routeName").optional({ nullable: true }).trim(),
+  ],
+  nearby: [
+    body("latitude").optional().isFloat({ min: -90, max: 90 }).withMessage("latitude must be between -90 and 90"),
+    body("longitude").optional().isFloat({ min: -180, max: 180 }).withMessage("longitude must be between -180 and 180"),
+  ],
+};
+
 module.exports = {
   userValidation,
   busValidation,
@@ -350,4 +374,5 @@ module.exports = {
   tripValidation,
   complaintValidation,
   feedbackValidation,
+  liveTrackingValidation,
 };
