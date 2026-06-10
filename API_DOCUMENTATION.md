@@ -890,117 +890,273 @@ Access: Admin
 Body:
 ```json
 {
-  "alertType": "Delay",
-  "title": "Route 100 Delay",
-  "content": "Buses are delayed by 20 minutes.",
-  "affectedBusOrRoute": "Route 100 Panadura - Pettah",
-  "targetRoute": 1
+  "alertType": "delay",
+  "title": "Bus Delay on Colombo-Kandy Route",
+  "description": "All buses on the Colombo to Kandy route are experiencing 15 minutes delay due to traffic congestion.",
+  "targetAudience": "route",
+  "affectedRoute": "Colombo to Kandy",
+  "affectedBus": null
 }
 ```
 Response `201`: 
 ```json
 {
-  "success": true,
-  "message": "Alert created successfully",
-  "data": {
-    "id": 1,
-    "alertType": "Delay",
-    "title": "Route 100 Delay",
-    "content": "Buses are delayed by 20 minutes.",
-    "affectedBusOrRoute": "Route 100 Panadura - Pettah"
-    "targetRoute": 1,
-    "isPublic": false,
-    "createdAt": "2026-04-01"
-  }
+    "success": true,
+    "message": "Alert created successfully",
+    "data": {
+        "recipientCount": 2,
+        "isDeleted": false,
+        "id": 29,
+        "alertType": "delay",
+        "affectedRoute": "Colombo to Kandy",
+        "affectedBus": null,
+        "title": "Bus Delay on Colombo-Kandy Route",
+        "description": "All buses on the Colombo to Kandy route are experiencing 15 minutes delay due to traffic congestion.",
+        "targetAudience": "route",
+        "scheduledAt": null,
+        "status": "sent",
+        "sentAt": "2026-06-10T15:55:40.451Z",
+        "createdBy": 2,
+        "updatedAt": "2026-06-10T15:55:40.451Z",
+        "createdAt": "2026-06-10T15:55:40.391Z",
+        "deliveryMeta": {
+            "targetAudience": "route",
+            "affectedRoute": "Colombo to Kandy",
+            "affectedBus": null,
+            "dispatchedAt": "2026-06-10T15:55:40.451Z"
+        }
+    }
 }
 ```
-### 7.2 GET /alerts
-Description: Get alerts
-Access: Authenticated
+### 7.2 GET /alerts/history
+Description: Get alerts history(created only by admin role)
+Access: Admin
 Response `200`:
 ```json
 {
   "success": true,
   "message": "Success",
   "data": {
-    "alerts": [
-      {
-        "id": 1,
-        "alertType": "Delay",
-        "title": "Route 100 Delay",
-        "content": "Buses are delayed by 20 minutes.",
-        "affectedRoute": 1,
-        "isPublic": false,
-        "createdAt": "2026-04-01"
-      },
-      {
-        "id": 2,
-        "alertType": "General",
-        "title": "Holiday Notice",
-        "content": "Special schedules for holidays.",
-        "isPublic": true,
-        "createdAt": "2026-04-01"
-      }
-    ]
+          "total": 26,
+          "page": 1,
+          "totalPages": 3,
+          "alerts": [
+              {
+                  "id": 29,
+                  "alertType": "delay",
+                  "affectedRoute": "Colombo to Kandy",
+                  "affectedBus": null,
+                  "title": "Bus Delay on Colombo-Kandy Route",
+                  "description": "All buses on the Colombo to Kandy route are experiencing 15 minutes delay due to traffic congestion.",
+                  "targetAudience": "route",
+                  "status": "sent",
+                  "scheduledAt": null,
+                  "sentAt": "2026-06-10T15:55:40.000Z",
+                  "recipientCount": 2,
+                  "deliveryMeta": {
+                      "affectedBus": null,
+                      "dispatchedAt": "2026-06-10T15:55:40.451Z",
+                      "affectedRoute": "Colombo to Kandy",
+                      "targetAudience": "route"
+                  },
+                  "createdBy": 2,
+                  "isDeleted": false,
+                  "createdAt": "2026-06-10T15:55:40.000Z",
+                  "updatedAt": "2026-06-10T15:55:40.000Z",
+                  "createdByInfo": {
+                      "role": "admin",
+                      "id": 2,
+                      "name": "System Admin",
+                      "displayName": "System Admin"
+                  }
+              }
+          ]
   }
 }
 ```
-### 7.3 DELETE /alerts/:id
-Description: Delete alert
+### 7.3 GET /alerts/history/all
+Description: Get all alerts created by both bus and admin users.
 Access: Admin
-
 Response `200`:
 ```json
 {
   "success": true,
-  "message": "Alert deleted successfully",
-  "data": null
+  "message": "Success",
+  "data": {
+          "total": 29,
+          "page": 1,
+          "totalPages": 3,
+          "alerts": [
+              {
+                  "id": 29,
+                  "alertType": "delay",
+                  "affectedRoute": "Colombo to Kandy",
+                  "affectedBus": null,
+                  "title": "Bus Delay on Colombo-Kandy Route",
+                  "description": "All buses on the Colombo to Kandy route are experiencing 15 minutes delay due to traffic congestion.",
+                  "targetAudience": "route",
+                  "status": "sent",
+                  "scheduledAt": null,
+                  "sentAt": "2026-06-10T15:55:40.000Z",
+                  "recipientCount": 2,
+                  "deliveryMeta": {
+                      "affectedBus": null,
+                      "dispatchedAt": "2026-06-10T15:55:40.451Z",
+                      "affectedRoute": "Colombo to Kandy",
+                      "targetAudience": "route"
+                  },
+                  "createdBy": 2,
+                  "isDeleted": false,
+                  "createdAt": "2026-06-10T15:55:40.000Z",
+                  "updatedAt": "2026-06-10T15:55:40.000Z",
+                  "createdByInfo": {
+                      "role": "admin",
+                      "id": 2,
+                      "name": "System Admin",
+                      "displayName": "System Admin"
+                  }
+              }
+          ]
+  }
 }
 ```
-
-### 7.4 POST /bus-alerts
+### 7.4 POST alerts/bus/send
 Description: Bus can send alerts to passenger that have subscribed to the route.
 Access: Authenticated
 Body:
 ```json
 {
-  "alertType": "Delay", 
-  "routeId": 3, 
-     
+  "alertType": "breakdown",
+  "title": "Bus Breakdown Alert",
+  "description": "Bus WP NA-1234 on Route 100 has experienced a breakdown.",
+  "affectedBus": "WP NA-1234"
 }
 ```
 Response `201`:
 ```json
 {
-  "success": true,
-  "message": "Alert sent successfully",
-  "data": {
-    "id": 15,
-    "busNumber": "NA-1234",
-    "routeId": 3,
-    "alertType": "Delay",
-    "sentAt": "2026-04-01"
-  }
+    "success": true,
+    "message": "Bus alert sent successfully",
+    "data": {
+        "recipientCount": 0,
+        "isDeleted": false,
+        "id": 33,
+        "alertType": "breakdown",
+        "affectedRoute": "Route 100",
+        "affectedBus": "WP NA-1234",
+        "title": "Bus Breakdown Alert",
+        "description": "Bus WP NA-1234 on Route 100 has experienced a breakdown.",
+        "targetAudience": "route",
+        "status": "sent",
+        "sentAt": "2026-06-10T16:19:33.889Z",
+        "createdBy": 18,
+        "updatedAt": "2026-06-10T16:19:33.889Z",
+        "createdAt": "2026-06-10T16:19:33.846Z",
+        "deliveryMeta": {
+            "targetAudience": "route",
+            "affectedRoute": "Route 100",
+            "affectedBus": "WP NA-1234",
+            "dispatchedAt": "2026-06-10T16:19:33.889Z"
+        }
+    }
 }
 ```
-### 7.5 GET /bus-alerts
-Description: Get recent own alerts sent by Bus.
-Access: Authorixation
+### 7.5 GET alerts/bus/history
+Description: Get recent alerts sent by Bus user.
+Access: Authorization
 Response `200`:
 ```json
 {
-  "success": true,
-  "data": [
-    {
-      "id": 15,
-      "alertType": "Delay",
-      "sentAt": "2026-04-01"
-    },
-    {
-      "id": 14,
-      "sentAt": "2026-04-01"
+    "success": true,
+    "message": "Success",
+    "data": {
+        "total": 18,
+        "page": 1,
+        "totalPages": 2,
+        "alerts": [
+            {
+                "id": 44,
+                "alertType": "breakdown",
+                "affectedRoute": "Route 100",
+                "affectedBus": "WP NA-1234",
+                "title": "Bus Breakdown Alert",
+                "description": "Bus WP NA-1234 on Route 100 has experienced a breakdown.",
+                "targetAudience": "route",
+                "status": "sent",
+                "scheduledAt": null,
+                "sentAt": "2026-06-10T16:33:31.000Z",
+                "recipientCount": 0,
+                "deliveryMeta": {
+                    "affectedBus": "WP NA-1234",
+                    "dispatchedAt": "2026-06-10T16:33:31.013Z",
+                    "affectedRoute": "Route 100",
+                    "targetAudience": "route"
+                },
+                "createdBy": 18,
+                "isDeleted": false,
+                "createdAt": "2026-06-10T16:33:31.000Z",
+                "updatedAt": "2026-06-10T16:33:31.000Z"
+            }
+        ]
     }
-  ]
+}
+```
+### 7.6 GET /alerts/feed
+Description: Returns public alerts + alerts for the passenger's subscribed routes
+Access: Authenticated
+Response:
+```json
+{
+    "success": true,
+    "message": "Success",
+    "data": {
+        "total": 23,
+        "page": 1,
+        "totalPages": 3,
+        "alerts": [
+            {
+                "id": 25,
+                "alertType": "breakdown",
+                "affectedRoute": "Route 100",
+                "affectedBus": "WP NA-1234",
+                "title": "Bus Breakdown Alert",
+                "description": "Bus WP NA-1234 on Route 100 has experienced a breakdown.",
+                "status": "sent",
+                "scheduledAt": null,
+                "sentAt": "2026-05-20T14:42:20.000Z",
+                "recipientCount": 7,
+                "deliveryMeta": {
+                    "affectedBus": "WP NA-1234",
+                    "dispatchedAt": "2026-05-20T14:42:20.246Z",
+                    "affectedRoute": "Route 100",
+                    "targetAudience": "public"
+                },
+                "createdBy": 2,
+                "isDeleted": false,
+                "createdAt": "2026-05-20T14:42:20.000Z",
+                "updatedAt": "2026-05-20T14:42:20.000Z"
+            }
+        ]
+    }
+}
+```
+### 7.7 GET alerts/:id
+Description: Get alerts by id(Admin/Passenger)
+Access: Authorized
+Response:
+```json
+{
+    "success": true,
+    "message": "Success",
+    "data": {
+        "id": 5,
+        "title": "Bus Breakdown",
+        "alertType": "breakdown",
+        "affectedBus": "WP NA-1234",
+        "affectedRoute": "Route 100",
+        "sentAt": "2026-05-20T08:33:11.000Z",
+        "description": "Bus WP NA-1234 on Route 100 has experienced a breakdown."
+    }
 }
 ```
 ## 8. Feeback Endpoints
