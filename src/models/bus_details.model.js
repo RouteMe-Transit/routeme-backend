@@ -26,7 +26,7 @@ const BusDetails = sequelize.define(
     registrationNumber: {
       type: DataTypes.STRING(20),
       allowNull: false,
-      unique: true,
+      unique: "bus_details_registration_number_unique",
     },
     busType: {
       type: DataTypes.ENUM("A/C Express", "Semi-Luxury", "Regular"),
@@ -72,6 +72,28 @@ const BusDetails = sequelize.define(
       type: DataTypes.DATE,
       allowNull: true,
     },
+    heading: {
+      type: DataTypes.STRING(100),
+      allowNull: true,
+    },
+    speed: {
+      type: DataTypes.DECIMAL(7, 2),
+      allowNull: true,
+    },
+    gpsEnabled: {
+      type: DataTypes.BOOLEAN,
+      allowNull: false,
+      defaultValue: false,
+    },
+    liveStatus: {
+      type: DataTypes.STRING(20),
+      allowNull: false,
+      defaultValue: "inactive",
+    },
+    lastSeenAt: {
+      type: DataTypes.DATE,
+      allowNull: true,
+    },
     isActive: {
       type: DataTypes.BOOLEAN,
       allowNull: false,
@@ -83,7 +105,9 @@ const BusDetails = sequelize.define(
     indexes: [
       { fields: ["userId"] },
       { fields: ["routeId"] },
-      { fields: ["registrationNumber"], unique: true },
+      { fields: ["liveStatus"] },
+      { fields: ["lastSeenAt"] },
+      { fields: ["registrationNumber"], unique: true, name: "bus_details_registration_number_unique" },
     ],
   }
 );

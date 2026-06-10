@@ -5,6 +5,24 @@ const ApiError = require("../utils/ApiError");
 let schedulerTimer = null;
 let schedulerRunning = false;
 
+const buildAlertSearchConditions = (search) => {
+  const searchText = `${search || ""}`.trim();
+  const conditions = [
+    { alertType: { [Op.like]: `%${searchText}%` } },
+    { title: { [Op.like]: `%${searchText}%` } },
+    { description: { [Op.like]: `%${searchText}%` } },
+    { affectedRoute: { [Op.like]: `%${searchText}%` } },
+    { affectedBus: { [Op.like]: `%${searchText}%` } },
+  ];
+
+  const numericMatch = searchText.match(/\d+/);
+  if (numericMatch) {
+    conditions.push({ id: Number(numericMatch[0]) });
+  }
+
+  return conditions;
+};
+
 const BUS_ALERT_TYPE_MAP = {
   // common canonical forms
   delay: "delay",
@@ -40,38 +58,75 @@ const BUS_ALERT_TYPE_MAP = {
 const BUS_ALERT_TEMPLATES = { //need to update descriptions to be more dynamic based on route and bus info
   delay: {
     title: "Bus Delay Alert",
-    description: (route) => `Bus service on route ${route} is delayed. Please expect a late arrival.`,
   },
   weather: {
     title: "Weather Alert",
-    description: (route) =>
-      `Bus service on route ${route} is affected by weather conditions. Please travel with caution.`,
   },
   breakdown: {
     title: "Bus Breakdown Alert",
-    description: (route) =>
-      `A bus operating on route ${route} has broken down. Replacement and recovery actions are in progress.`,
   },
   "not operating": {
     title: "Service Not Operating",
-    description: (route) => `Bus service on route ${route} is currently not operating.`,
   },
   accident: {
     title: "Accident Alert",
-    description: (route) =>
-      `An accident has impacted bus service on route ${route}. Delays and temporary service disruption are expected.`,
   },
   "road block": {
     title: "Road Block Alert",
-    description: (route) =>
-      `A road block is affecting bus movement on route ${route}. Alternate routing and delays may occur.`,
   },
 };
 
-const getAlertById = async (id) => {// Admins can view any alert by ID, including scheduled and sent alerts
+const generateBusMessage = ({ alertType, affectedBus, affectedRoute }) => {
+  const bus = `${affectedBus || "Bus service"}`.trim() || "Bus service";
+  const route = `${affectedRoute || "Unknown route"}`.trim() || "Unknown route";
+  const prefix = `${bus} on route ${route}`;
+
+  switch (alertType) {
+    case "not operating":
+      return `${prefix} is currently not operating.`;
+    case "delay":
+      return `${prefix} is currently delayed.`;
+    case "breakdown":
+      return `${prefix} has experienced a breakdown.`;
+    case "accident":
+      return `${prefix} has reported an accident.`;
+    case "weather":
+      return `${prefix} is affected by severe weather conditions.`;
+    case "road block":
+      return `${prefix} is affected due to a road block.`;
+    default:
+      return `${prefix} has a service disruption.`;
+  }
+};
+
+const getAlertById = async (id, viewer = null) => {
   const alert = await Alert.findByPk(id);
   if (!alert || alert.isDeleted) throw new ApiError(404, "Alert not found");
-  return alert;
+
+  if (viewer?.role === "passenger" && !canPassengerViewAlert(viewer, alert)) {
+    throw new ApiError(403, "You do not have permission to view this alert");
+  }
+
+  const alertWithCreator = await attachCreatorInfo(alert);
+
+  if (viewer?.role === "passenger") {
+    const row = alertWithCreator?.toJSON ? alertWithCreator.toJSON() : { ...alertWithCreator };
+
+    return {
+      id: row.id,
+      title: row.title,
+      alertType: row.alertType,
+      affectedBus: row.affectedBus,
+      affectedRoute: row.affectedRoute,
+      sentAt: row.sentAt,
+      description: row.description,
+    };
+  }
+
+  return {
+    ...alertWithCreator,
+    createdBy: alertWithCreator?.createdByInfo || null,
+  };
 };
 
 const normalizeRouteKey = (route) => {
@@ -116,6 +171,22 @@ const userSubscribedToRoute = (user, route) => {// Check if a passenger user is 
   }
 
   return subscribedRoutes.some((subscribedRoute) => normalizeRouteKey(subscribedRoute) === routeKey);// If any of the user's subscribed routes match the alert's affected route, the user should see the alert
+};
+
+const canPassengerViewAlert = (passenger, alert) => {
+  if (!passenger || passenger.role !== "passenger" || !alert) {
+    return false;
+  }
+
+  if (alert.isDeleted || alert.status !== "sent") {
+    return false;
+  }
+
+  if (alert.targetAudience === "public") {
+    return true;
+  }
+
+  return userSubscribedToRoute(passenger, alert.affectedRoute);
 };
 
 const getPassengerVisibleAlerts = async ({ passenger, page = 1, limit = 10 } = {}) => {
@@ -251,7 +322,16 @@ const createAlert = async (data, adminId) => {
   return alert;
 };
 
-const createBusRouteAlert = async ({ alertType, busUser }) => {
+const createBusRouteAlert = async ({
+  alertType,
+  busUser,
+  title,
+  description,
+  affectedBus,
+  affectedRoute,
+  targetAudience,
+  targetRoute,
+}) => {
   if (!busUser || busUser.role !== "bus") {
     throw new ApiError(403, "Only bus users can send bus alerts");
   }
@@ -280,15 +360,27 @@ const createBusRouteAlert = async ({ alertType, busUser }) => {
   }
 
   const template = BUS_ALERT_TEMPLATES[normalizedAlertType];
-  const routeName = route.routeName || `Route ${routeId}`;
+  const routeName = `${affectedRoute || route.routeName || `Route ${routeId}`}`.trim();
+  const busNumber = `${affectedBus || busDetails.registrationNumber || ""}`.trim() || null;
+  const generatedDescription = generateBusMessage({
+    alertType: normalizedAlertType,
+    affectedBus: busNumber,
+    affectedRoute: routeName,
+  });
+  const incomingDescription = typeof description === "string" ? description.trim() : "";
+  const finalDescription =
+    incomingDescription && busNumber && incomingDescription.includes(busNumber)
+      ? incomingDescription
+      : generatedDescription;
+  const resolvedTargetAudience = targetAudience || "route";
 
   const alert = await Alert.create({
     alertType: normalizedAlertType,
     affectedRoute: routeName,
-    affectedBus: busDetails.registrationNumber,
-    title: template.title,
-    description: template.description(routeName),
-    targetAudience: "route",
+    affectedBus: busNumber,
+    title: `${title || template?.title || "Bus Alert"}`.trim(),
+    description: finalDescription,
+    targetAudience: resolvedTargetAudience,
     status: "sent",
     sentAt: new Date(),
     createdBy: busUser.id,
@@ -335,7 +427,7 @@ const initAlertScheduler = () => {
   });
 };
 
-const getAlertHistoryByAdmin = async ({ page = 1, limit = 10, status, createdBy } = {}) => {
+const getAlertHistoryByAdmin = async ({ page = 1, limit = 10, status, createdBy, creatorRole, search } = {}) => {
   const parsedPage = parseInt(page || 1, 10);
   const parsedLimit = parseInt(limit || 10, 10);
   const offset = (parsedPage - 1) * parsedLimit;
@@ -358,6 +450,27 @@ const getAlertHistoryByAdmin = async ({ page = 1, limit = 10, status, createdBy 
 
   const where = { isDeleted: false, createdBy: { [Op.in]: adminIds } };
   if (status) where.status = status;
+  if (search) {
+    where[Op.or] = buildAlertSearchConditions(search);
+  }
+  if (creatorRole) {
+    const normalizedCreatorRole = `${creatorRole}`.trim().toLowerCase();
+    const creatorIds = await User.findAll({
+      where: { role: normalizedCreatorRole },
+      attributes: ["id"],
+    }).then((users) => users.map((user) => user.id));
+
+    if (!creatorIds.length) {
+      return {
+        total: 0,
+        page: parsedPage,
+        totalPages: 0,
+        alerts: [],
+      };
+    }
+
+    where.createdBy = { [Op.in]: creatorIds };
+  }
   if (createdBy) {
     const requestedCreatorId = parseInt(createdBy, 10);
     if (Number.isNaN(requestedCreatorId) || !adminIds.includes(requestedCreatorId)) {
@@ -379,11 +492,13 @@ const getAlertHistoryByAdmin = async ({ page = 1, limit = 10, status, createdBy 
     order: [["createdAt", "DESC"]],
   });
 
+  const alerts = await attachCreatorInfo(rows);
+
   return {
     total: count,
     page: parsedPage,
     totalPages: Math.ceil(count / parsedLimit),
-    alerts: rows,
+    alerts,
   };
 };
 
@@ -411,11 +526,26 @@ const getAlertHistoryByBus = async ({ page = 1, limit = 10, busId } = {}) => {
   };
 };
 
-const attachCreatorInfo = async (alerts = []) => {
-  if (!alerts.length) return [];
+const attachCreatorInfo = async (alertOrAlerts = []) => {
+  const alerts = Array.isArray(alertOrAlerts) ? alertOrAlerts : [alertOrAlerts];
+
+  if (!alerts.length || !alerts[0]) {
+    return Array.isArray(alertOrAlerts) ? [] : null;
+  }
 
   const creatorIds = [...new Set(alerts.map((alert) => alert.createdBy).filter(Boolean))];
-  if (!creatorIds.length) return alerts.map((alert) => alert.toJSON());
+  if (!creatorIds.length) {
+    const mappedAlerts = alerts.map((alert) => {
+      const row = alert.toJSON ? alert.toJSON() : { ...alert };
+      row.createdByInfo = {
+        role: "unknown",
+        id: row.createdBy || null,
+      };
+      return row;
+    });
+
+    return Array.isArray(alertOrAlerts) ? mappedAlerts : mappedAlerts[0];
+  }
 
   const creators = await User.findAll({
     where: { id: { [Op.in]: creatorIds } },
@@ -434,62 +564,118 @@ const attachCreatorInfo = async (alerts = []) => {
 
   const busRegMap = new Map(busDetails.map((bus) => [bus.userId, bus.registrationNumber]));
 
-  return alerts.map((alert) => {
-    const row = alert.toJSON();
-    const creator = creatorMap.get(alert.createdBy);
+  const mappedAlerts = alerts.map((alert) => {
+    const row = alert.toJSON ? alert.toJSON() : { ...alert };
+    const creator = creatorMap.get(row.createdBy);
 
     if (!creator) {
       row.createdByInfo = {
-        type: "unknown",
-        userId: alert.createdBy,
+        role: "unknown",
+        id: row.createdBy || null,
       };
       return row;
     }
 
     if (creator.role === "admin") {
+      const adminName = `${creator.firstName || ""} ${creator.lastName || ""}`.trim();
       row.createdByInfo = {
-        type: "admin",
-        adminId: creator.id,
-        adminName: `${creator.firstName || ""} ${creator.lastName || ""}`.trim(),
+        role: "admin",
+        id: creator.id,
+        name: adminName || null,
+        displayName: adminName || null,
       };
       return row;
     }
 
     if (creator.role === "bus") {
+      const registrationNumber = busRegMap.get(creator.id) || row.affectedBus || null;
       row.createdByInfo = {
-        type: "bus",
-        busId: creator.id,
-        registrationNumber: busRegMap.get(creator.id) || row.affectedBus || null,
+        role: "bus",
+        id: creator.id,
+        name: registrationNumber,
+        registrationNumber,
+        displayName: registrationNumber,
       };
       return row;
     }
 
     row.createdByInfo = {
-      type: creator.role,
-      userId: creator.id,
+      role: creator.role,
+      id: creator.id,
     };
     return row;
   });
+
+  return Array.isArray(alertOrAlerts) ? mappedAlerts : mappedAlerts[0];
 };
 
-const getAlertHistoryAllForAdmin = async ({ page = 1, limit = 10, status, createdBy } = {}) => {
+const buildAlertHistoryWhere = async ({ status, createdBy, creatorRole, alertType, affectedRoute, search } = {}) => {
+  const where = { isDeleted: false };
+  let creatorIdFilter = null;
+
+  if (status) where.status = status;
+
+  if (alertType) {
+    where.alertType = `${alertType}`.trim().toLowerCase();
+  }
+
+  if (affectedRoute) {
+    where.affectedRoute = { [Op.like]: `%${`${affectedRoute}`.trim()}%` };
+  }
+
+  if (search) {
+    where[Op.or] = buildAlertSearchConditions(search);
+  }
+
+  if (creatorRole) {
+    const normalizedCreatorRole = `${creatorRole}`.trim().toLowerCase();
+    const creatorIds = await User.findAll({
+      where: { role: normalizedCreatorRole },
+      attributes: ["id"],
+    }).then((users) => users.map((user) => user.id));
+
+    if (!creatorIds.length) {
+      return null;
+    }
+
+    creatorIdFilter = creatorIds;
+  }
+
+  if (createdBy) {
+    const parsedCreatedBy = parseInt(createdBy, 10);
+    if (Number.isNaN(parsedCreatedBy)) {
+      return null;
+    }
+
+    if (creatorIdFilter && !creatorIdFilter.includes(parsedCreatedBy)) {
+      return null;
+    }
+
+    where.createdBy = parsedCreatedBy;
+    return where;
+  }
+
+  if (creatorIdFilter) {
+    where.createdBy = { [Op.in]: creatorIdFilter };
+  }
+
+  return where;
+};
+
+const getAlertHistoryAllForAdmin = async ({ page = 1, limit = 10, status, createdBy, creatorRole, alertType, affectedRoute, search } = {}) => {
   const parsedPage = parseInt(page || 1, 10);
   const parsedLimit = parseInt(limit || 10, 10);
   const offset = (parsedPage - 1) * parsedLimit;
 
-  const where = { isDeleted: false };
-  if (status) where.status = status;
-  if (createdBy) {
-    const parsedCreatedBy = parseInt(createdBy, 10);
-    if (Number.isNaN(parsedCreatedBy)) {
-      return {
-        total: 0,
-        page: parsedPage,
-        totalPages: 0,
-        alerts: [],
-      };
-    }
-    where.createdBy = parsedCreatedBy;
+  const where = await buildAlertHistoryWhere({ status, createdBy, creatorRole, alertType, affectedRoute, search });
+
+  if (!where) {
+    return {
+      total: 0,
+      page: parsedPage,
+      totalPages: 0,
+      alerts: [],
+    };
   }
 
   const { count, rows } = await Alert.findAndCountAll({
@@ -513,6 +699,7 @@ module.exports = {
   getAlertById,
   createAlert,
   createBusRouteAlert,
+  generateBusMessage,
   getPassengerVisibleAlerts,
   getAlertHistoryByAdmin,
   getAlertHistoryAllForAdmin,

@@ -40,11 +40,24 @@ const getTripStops = async (req, res, next) => {
 // Update trip status (start, ongoing, finished)
 const updateTripStatus = async (req, res, next) => {
   try {
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) throw new ApiError(422, "Validation failed", errors.array());
-
-    const { BusDetails } = require("../models");
+    const { Trip, BusDetails } = require("../models");
     const tripId = req.params.tripId;
+    const currentTrip = await Trip.findByPk(tripId);
+
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      console.warn("[bus-trip] updateTripStatus validation failed", {
+        tripId,
+        body: req.body,
+        errors: errors.array(),
+        currentDbStatus: currentTrip?.status ?? null,
+        currentDbUpdatedAt: currentTrip?.updatedAt ?? null,
+        busUserId: req.user?.id ?? null,
+      });
+
+      throw new ApiError(422, "Validation failed", errors.array());
+    }
+
     const { status } = req.body;
 
     // Get the bus associated with this user

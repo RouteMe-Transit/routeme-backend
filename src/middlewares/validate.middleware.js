@@ -225,7 +225,7 @@ const alertValidation = {
     body("description").optional({ nullable: true }).trim(),
     body("content").optional({ nullable: true }).trim(),
     body("targetAudience").optional({ nullable: true }).isIn(["public", "route"]).withMessage("Target audience must be public or route"),
-    body("targetRoute").optional({ nullable: true }).trim(),
+    body("targetRoute").optional({ nullable: true }).isInt().toInt().withMessage("Target route must be a number"),
     body("affectedRoute")
       .optional({ nullable: true })
       .trim()
@@ -239,9 +239,6 @@ const alertValidation = {
     body("affectedBus").optional({ nullable: true }).trim(),
     body("scheduledAt").optional({ nullable: true }).isISO8601().withMessage("Invalid schedule date/time"),
     body().custom((_, { req }) => {
-      const hasDescription = !!`${req.body.description || req.body.content || ""}`.trim();
-      if (!hasDescription) throw new Error("Description is required");
-
       const routeValue = req.body.targetRoute || req.body.affectedRoute;
       const targetAudience = req.body.targetAudience || (routeValue ? "route" : "public");
 
@@ -255,14 +252,19 @@ const alertValidation = {
   busSend: [
     body("alertType")
       .trim().notEmpty().withMessage("Alert type is required")
-      .bail()
-      .isIn(ALERT_TYPES).withMessage("Invalid alert type"),
+      .bail(),
+    body("title").optional({ nullable: true }).trim(),
+    body("description").optional({ nullable: true }).trim(),
+    body("content").optional({ nullable: true }).trim(),
+    body("targetAudience").optional({ nullable: true }).isIn(["public", "route"]).withMessage("Target audience must be public or route"),
+    body("targetRoute").optional({ nullable: true }).isInt().toInt().withMessage("Target route must be a number"),
+    body("affectedRoute").optional({ nullable: true }).trim(),
+    body("affectedBus").optional({ nullable: true }).trim(),
   ],
 };
 
 // ── Trip validations ──────────────────────────────────────────────────────────
 
-const TRIP_STATUSES = ["active", "scheduled", "delayed", "completed", "cancelled"];
 const VALID_DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
 const isValidDaysArray = (value) => {
@@ -296,9 +298,6 @@ const tripValidation = {
     body("days")
       .optional()
       .custom(isValidDaysArray),
-    body("status")
-      .optional()
-      .isIn(TRIP_STATUSES).withMessage(`status must be one of: ${TRIP_STATUSES.join(", ")}`),
   ],
   update: [
     body("routeId").optional().isInt({ min: 1 }).withMessage("routeId must be a positive integer"),
@@ -315,15 +314,6 @@ const tripValidation = {
     body("days")
       .optional()
       .custom(isValidDaysArray),
-    body("status")
-      .optional()
-      .isIn(TRIP_STATUSES).withMessage(`status must be one of: ${TRIP_STATUSES.join(", ")}`),
-  ],
-  updateStatus: [
-    body("status")
-      .notEmpty().withMessage("status is required")
-      .bail()
-      .isIn(TRIP_STATUSES).withMessage(`status must be one of: ${TRIP_STATUSES.join(", ")}`),
   ],
 };
 
@@ -349,6 +339,30 @@ const feedbackValidation = {
   ],
 };
 
+const liveTrackingValidation = {
+  uploadLocation: [
+    body("gpsOn").optional().isBoolean().withMessage("gpsOn must be a boolean"),
+    body("latitude")
+      .if(body("gpsOn").custom((value) => value !== false))
+      .notEmpty().withMessage("latitude is required when GPS is on")
+      .bail()
+      .isFloat({ min: -90, max: 90 }).withMessage("latitude must be between -90 and 90"),
+    body("longitude")
+      .if(body("gpsOn").custom((value) => value !== false))
+      .notEmpty().withMessage("longitude is required when GPS is on")
+      .bail()
+      .isFloat({ min: -180, max: 180 }).withMessage("longitude must be between -180 and 180"),
+    body("direction").optional({ nullable: true }).trim(),
+    body("timestamp").optional({ nullable: true }).isISO8601().withMessage("timestamp must be a valid ISO date"),
+    body("routeId").optional({ nullable: true }).isInt({ min: 1 }).withMessage("routeId must be a positive integer"),
+    body("routeName").optional({ nullable: true }).trim(),
+  ],
+  nearby: [
+    body("latitude").optional().isFloat({ min: -90, max: 90 }).withMessage("latitude must be between -90 and 90"),
+    body("longitude").optional().isFloat({ min: -180, max: 180 }).withMessage("longitude must be between -180 and 180"),
+  ],
+};
+
 module.exports = {
   userValidation,
   busValidation,
@@ -360,4 +374,5 @@ module.exports = {
   tripValidation,
   complaintValidation,
   feedbackValidation,
+  liveTrackingValidation,
 };

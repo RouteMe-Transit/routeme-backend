@@ -1,9 +1,13 @@
 require("dotenv").config();
+const http = require("http");
+const { Server } = require("socket.io");
 
 const app = require("./src/app");
 const { sequelize, syncDatabase } = require("./src/models");
 const config = require("./src/config");
 const { initAlertScheduler } = require("./src/services/alert.service");
+const { initDailyTripReset } = require("./src/services/scheduler.service");
+const { setSocketIO, toRoomKey } = require("./src/services/websocket.service");
 
 const PORT = config.port || 5000;
 
@@ -22,9 +26,34 @@ const start = async () => {
       console.log("✅ Alert scheduler initialized");
     }
 
-    app.listen(PORT, () => {
+    if (initDailyTripReset) {
+      initDailyTripReset();
+    }
+
+    const server = http.createServer(app);
+    const io = new Server(server, {
+      cors: {
+        origin: ["http://localhost:3000", "http://127.0.0.1:3000"],
+        credentials: true,
+      },
+    });
+
+    io.on("connection", (socket) => {
+      socket.on("tracking:subscribeRoute", ({ routeName } = {}) => {
+        if (routeName) socket.join(`tracking:route:name:${toRoomKey(routeName)}`);
+      });
+
+      socket.on("tracking:unsubscribeRoute", ({ routeName } = {}) => {
+        if (routeName) socket.leave(`tracking:route:name:${toRoomKey(routeName)}`);
+      });
+    });
+
+    setSocketIO(io);
+
+    server.listen(PORT, () => {
       console.log(`🚀 Server running on http://localhost:${PORT}`);
       console.log(`📡 API Base URL: http://localhost:${PORT}/api/v1`);
+      console.log(`🛰️ Socket.IO ready on ws://localhost:${PORT}`);
     });
 
   } catch (err) {
