@@ -11,6 +11,7 @@ const RouteStop  = require("./route_stops.model");
 const Trip       = require("./trip.model");
 const Complaint  = require("./complaint.model");
 const Feedback   = require("./feedback.model");
+const OTP        = require("./otpmodel");
 
 // ── User ↔ BusDetails (one-to-one via userId)
 User.hasOne(BusDetails,    { foreignKey: "userId", as: "busDetails" });
@@ -69,4 +70,5 @@ module.exports = {
   Trip,
   Complaint,
   Feedback,
+  OTP,
 };
