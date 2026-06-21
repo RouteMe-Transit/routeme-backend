@@ -1524,35 +1524,125 @@ Response `200`:
 
 ## 11. Live Tracking Endpoints
 
-### 11.1 GET /tracking/:routeId
-Description: Get Live Location of Buses for Passenger.(routeId is optional apply only if passneger select route.)
+### 11.1 POST /buses/live/location
+Description: Used by a bus to push its current GPS location.
 Access: Authenticated
+Body:
+```json
+{
+  "latitude": 6.9271,
+  "longitude": 79.8612,
+  "gpsOn": true,
+  "routeId": 3,
+  "routeName": "Colombo - Kandy",
+  "timestamp": "2026-06-21T10:15:00.000Z"
+}
+```
 Response `200`: 
 ```json
 {
-  "success": true,
-  "data": {
-    "routeId": 1,
-    "routeName": "Colombo–Kandy Express",
-    "buses": [
-      {
-        "busNumber": "NA-1222",
-        "currentLocation": {
-          "lat": 7.2906,
-          "lng": 80.6337
+    "success": true,
+    "message": "Live location updated",
+    "data": {
+        "busId": 1,
+        "busUserId": 18,
+        "registrationNumber": "WP NA-1234",
+        "busType": "Regular",
+        "totalSeats": 45,
+        "routeId": 1,
+        "routeName": "Route 100",
+        "from": "Panadura",
+        "to": "Pettah",
+        "latitude": 6.9271,
+        "longitude": 79.8612,
+        "status": "stale",
+        "lastUpdated": "2026-06-21T10:15:00.000Z",
+        "gpsEnabled": true,
+        "distanceFromPassenger": null,
+        "staleAfterSeconds": 35
+    }
+}
+```
+### 11.2 GET /buses/live/nearby
+Description: Returns active buses within a radius of the passenger's location.
+Access: Authenticated
+(/nearby?latitude=6.9271&longitude=79.8612&radiusKm=10&limit=20)
+Response `200`:
+```json
+{
+    "success": true,
+    "message": "Nearby buses fetched",
+    "data": {
+        "passenger": {
+            "latitude": 6.9271,
+            "longitude": 79.8612
         },
-        "lastUpdated": "2026-04-01"
-      },
-      {
-        "busNumber": "NA-1233",
-        "currentLocation": {
-          "lat": 7.2950,
-          "lng": 80.6400
+        "radiusKm": 10,
+        "count": 1,
+        "buses": [
+            {
+                "busId": 1,
+                "busUserId": 18,
+                "registrationNumber": "WP NA-1234",
+                "busType": "Regular",
+                "totalSeats": 45,
+                "routeId": 1,
+                "routeName": "Route 100",
+                "from": "Panadura",
+                "to": "Pettah",
+                "latitude": 6.9271,
+                "longitude": 79.8612,
+                "status": "stale",
+                "lastUpdated": "2026-06-21T10:15:00.000Z",
+                "gpsEnabled": true,
+                "distanceFromPassenger": 0,
+                "staleAfterSeconds": 35
+            }
+        ],
+        "pollingIntervalSeconds": 10
+    }
+}
+```
+### 11.3 GET
+Description: Returns buses currently on a specific route, optionally sorted by distance from the passenger.
+Access: Authenticated
+(/route?routeName=Route 100)
+Response `200`:
+```json
+{
+    "success": true,
+    "message": "Route buses fetched",
+    "data": {
+        "route": {
+            "id": 1,
+            "routeName": "Route 100",
+            "from": "Panadura",
+            "to": "Pettah"
         },
-        "lastUpdated": "2026-04-01"
-      }
-    ]
-  }
+        "passenger": null,
+        "count": 1,
+        "buses": [
+            {
+                "busId": 1,
+                "busUserId": 18,
+                "registrationNumber": "WP NA-1234",
+                "busType": "Regular",
+                "totalSeats": 45,
+                "routeId": 1,
+                "routeName": "Route 100",
+                "from": "Panadura",
+                "to": "Pettah",
+                "latitude": 6.9271,
+                "longitude": 79.8612,
+                "status": "stale",
+                "lastUpdated": "2026-06-21T10:15:00.000Z",
+                "gpsEnabled": true,
+                "distanceFromPassenger": null,
+                "staleAfterSeconds": 35
+            }
+        ],
+        "pollingIntervalSeconds": 10
+    }
 }
 ```
 ## 12. Route Finder Endpoints
