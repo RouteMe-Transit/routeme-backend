@@ -6,9 +6,14 @@ const { body } = require("express-validator");
 
 const isValidRouteArray = (value) => {
   if (!Array.isArray(value)) throw new Error("subscribedRoutes must be an array of route strings");
-  if (value.some((r) => typeof r !== "string" || !r.trim()))
-    throw new Error("Each subscribed route must be a non-empty string");
+  if (value.some((r) => (typeof r !== "string" && typeof r !== "number") || `${r}`.trim() === ""))
+    throw new Error("Each subscribed route must be a non-empty string or route id");
   return true;
+};
+
+const isPositiveRouteId = (value) => {
+  const parsed = Number(value);
+  return Number.isInteger(parsed) && parsed > 0;
 };
 
 // ── User validations ──────────────────────────────────────────────────────────
@@ -39,6 +44,13 @@ const userValidation = {
       .exists().withMessage("subscribedRoutes is required")
       .bail()
       .custom(isValidRouteArray),
+  ],
+  favoriteRoute: [
+    body("routeId")
+      .notEmpty().withMessage("routeId is required")
+      .bail()
+      .custom(isPositiveRouteId).withMessage("routeId must be a positive integer")
+      .toInt(),
   ],
 };
 
