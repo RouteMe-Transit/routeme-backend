@@ -193,6 +193,37 @@ const authValidation = {
         return true;
       }),
   ],
+  forgotPassword: [
+  body("email").isEmail().normalizeEmail().withMessage("Valid email is required"),
+],
+verifyResetOTP: [
+  body("email").isEmail().normalizeEmail().withMessage("Valid email is required"),
+  body("otp")
+    .trim()
+    .notEmpty().withMessage("Code is required")
+    .bail()
+    .isLength({ min: 6, max: 6 }).withMessage("Code must be 6 digits")
+    .bail()
+    .isNumeric().withMessage("Code must be numeric"),
+],
+resetPassword: [
+  body("email").isEmail().normalizeEmail().withMessage("Valid email is required"),
+  body("otp")
+    .trim()
+    .notEmpty().withMessage("Code is required")
+    .bail()
+    .isLength({ min: 6, max: 6 }).withMessage("Code must be 6 digits")
+    .bail()
+    .isNumeric().withMessage("Code must be numeric"),
+  body("newPassword").isLength({ min: 8 }).withMessage("Password must be at least 8 characters"),
+  body("confirmNewPassword")
+    .notEmpty().withMessage("Confirm password is required")
+    .custom((value, { req }) => {
+      if (value !== req.body.newPassword) throw new Error("Passwords do not match");
+      return true;
+    }),
+],
+
 };
 
 // ── Alert validations ─────────────────────────────────────────────────────────

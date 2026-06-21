@@ -318,6 +318,8 @@ const deleteUser = async (id) => {
   await user.update({ isActive: false });
 };
 
+
+
 module.exports = {
   getAllUsers,
   getUserById,
