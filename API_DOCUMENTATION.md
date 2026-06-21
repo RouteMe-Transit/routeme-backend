@@ -727,30 +727,7 @@ Response `200`:
 }
 ```
 
-### 5.6 PATCH /buses/location
-Access: Authenticated
-Description: Fetch location from phone logged into bus account.
-Body:
-```json
-{
-  "latitude": 6.9271,
-  "longitude": 79.8612
-}
-```
-Response `200`:
-```json
-{
-    
-  "success": true,
-  "message": "Bus location updated successfully",
-  "data": {
-    "busId": 1,
-    "latitude": 6.9271,
-    "longitude": 79.8612,
-    "recordedAt": "2026-04-01"
-  }
-}
-```
+
 
 ---
 
@@ -1603,7 +1580,7 @@ Response `200`:
     }
 }
 ```
-### 11.3 GET
+### 11.3 GET /buses/live/route
 Description: Returns buses currently on a specific route, optionally sorted by distance from the passenger.
 Access: Authenticated
 (/route?routeName=Route 100)
