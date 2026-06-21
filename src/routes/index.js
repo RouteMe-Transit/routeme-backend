@@ -9,8 +9,6 @@ const busTripRoutes   = require("./bus-trip.routes");
 const routeRoutes     = require("./route.routes");
 const stopRoutes      = require("./stop.routes");
 const tripRoutes      = require("./trip.routes");
-
-// your feature
 const complaintRoutes = require("./complaint.routes");
 const feedbackRoutes  = require("./feedback.routes");
 
@@ -29,7 +27,6 @@ router.use("/routes",     routeRoutes);
 router.use("/stops",      stopRoutes);
 router.use("/trips",      tripRoutes);
 
-// ── Your Feature ────────────────────────────────────────────
 router.use("/complaints", complaintRoutes);
 router.use("/feedbacks",  feedbackRoutes);
 
