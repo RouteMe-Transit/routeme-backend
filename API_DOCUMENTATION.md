@@ -106,7 +106,6 @@ Response `200`:
 ---
 
 ## 2.User Endpoints
-Access: Admin only (all routes require token + admin role)
 
 ### 2.1 GET /users
 Description: Returns alist of users.
@@ -128,7 +127,7 @@ Response `200`:
         "isActive": true
       },
       {
-        "id:" 2,
+        "id": 2,
         "firstName": "Jane",
         "lastName": "Doe",
         "email": "janedoe@gmail.com",
@@ -230,7 +229,85 @@ Response `200`:
   "data": null
 }
 ```
+### 2.6 GET /users/me/favorite-routes
+Description: Get passenger's favoutite routes.
+Access: Authenticated(passenger)
+Response `200`:
+```json
+{
+    "success": true,
+    "message": "Success",
+    "data": {
+        "total": 2,
+        "routes": [
+            {
+                "id": 1,
+                "routeName": "Route 100"
+            },
+            {
+                "id": 2,
+                "routeName": "Route 101"
+            }
+        ]
+    }
+}
+```
+### 2.7 POST /users/me/favorite-routes
+Description: Add favourite route
+Access: Authenticated(passenger)
+Body:
+```json
+{
+  "routeId": 2
+}
+```
+Response `200`:
+```json
+{
+    "success": true,
+    "message": "Route added to favorites successfully",
+    "data": {
+        "id": 10,
+        "firstName": "Passenger",
+        "lastName": "2",
+        "email": "passenger2@gmail.com",
+        "phone": "0712345678",
+        "favoriteRoutes": [
+            1,
+            2
+        ],
+        "role": "passenger",
+        "isActive": true,
+        "createdAt": "2026-05-12T13:47:10.000Z",
+        "updatedAt": "2026-06-22T16:32:43.575Z"
+    }
+}
+```
 
+### 2.8 DELETE /users/me/favorite-routes/:routeId
+Description: Remove Favourite routes.
+Access: Authenticated(passenger)
+Response `200`:
+```json
+{
+    "success": true,
+    "message": "Route removed from favorites successfully",
+    "data": {
+        "id": 10,
+        "firstName": "Passenger",
+        "lastName": "2",
+        "email": "passenger2@gmail.com",
+        "phone": "0712345678",
+        "favoriteRoutes": [
+            1
+        ],
+        "role": "passenger",
+        "isActive": true,
+        "createdAt": "2026-05-12T13:47:10.000Z",
+        "updatedAt": "2026-06-22T16:36:53.406Z"
+    }
+}
+```
 ---
 
 ## 3. Route Endpoints
