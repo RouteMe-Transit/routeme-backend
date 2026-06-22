@@ -6,9 +6,14 @@ const { body } = require("express-validator");
 
 const isValidRouteArray = (value) => {
   if (!Array.isArray(value)) throw new Error("subscribedRoutes must be an array of route strings");
-  if (value.some((r) => typeof r !== "string" || !r.trim()))
-    throw new Error("Each subscribed route must be a non-empty string");
+  if (value.some((r) => (typeof r !== "string" && typeof r !== "number") || `${r}`.trim() === ""))
+    throw new Error("Each subscribed route must be a non-empty string or route id");
   return true;
+};
+
+const isPositiveRouteId = (value) => {
+  const parsed = Number(value);
+  return Number.isInteger(parsed) && parsed > 0;
 };
 
 // ── User validations ──────────────────────────────────────────────────────────
@@ -39,6 +44,13 @@ const userValidation = {
       .exists().withMessage("subscribedRoutes is required")
       .bail()
       .custom(isValidRouteArray),
+  ],
+  favoriteRoute: [
+    body("routeId")
+      .notEmpty().withMessage("routeId is required")
+      .bail()
+      .custom(isPositiveRouteId).withMessage("routeId must be a positive integer")
+      .toInt(),
   ],
 };
 
@@ -181,6 +193,37 @@ const authValidation = {
         return true;
       }),
   ],
+  forgotPassword: [
+  body("email").isEmail().normalizeEmail().withMessage("Valid email is required"),
+],
+verifyResetOTP: [
+  body("email").isEmail().normalizeEmail().withMessage("Valid email is required"),
+  body("otp")
+    .trim()
+    .notEmpty().withMessage("Code is required")
+    .bail()
+    .isLength({ min: 6, max: 6 }).withMessage("Code must be 6 digits")
+    .bail()
+    .isNumeric().withMessage("Code must be numeric"),
+],
+resetPassword: [
+  body("email").isEmail().normalizeEmail().withMessage("Valid email is required"),
+  body("otp")
+    .trim()
+    .notEmpty().withMessage("Code is required")
+    .bail()
+    .isLength({ min: 6, max: 6 }).withMessage("Code must be 6 digits")
+    .bail()
+    .isNumeric().withMessage("Code must be numeric"),
+  body("newPassword").isLength({ min: 8 }).withMessage("Password must be at least 8 characters"),
+  body("confirmNewPassword")
+    .notEmpty().withMessage("Confirm password is required")
+    .custom((value, { req }) => {
+      if (value !== req.body.newPassword) throw new Error("Passwords do not match");
+      return true;
+    }),
+],
+
 };
 
 // ── Alert validations ─────────────────────────────────────────────────────────
@@ -339,6 +382,30 @@ const feedbackValidation = {
   ],
 };
 
+const liveTrackingValidation = {
+  uploadLocation: [
+    body("gpsOn").optional().isBoolean().withMessage("gpsOn must be a boolean"),
+    body("latitude")
+      .if(body("gpsOn").custom((value) => value !== false))
+      .notEmpty().withMessage("latitude is required when GPS is on")
+      .bail()
+      .isFloat({ min: -90, max: 90 }).withMessage("latitude must be between -90 and 90"),
+    body("longitude")
+      .if(body("gpsOn").custom((value) => value !== false))
+      .notEmpty().withMessage("longitude is required when GPS is on")
+      .bail()
+      .isFloat({ min: -180, max: 180 }).withMessage("longitude must be between -180 and 180"),
+    body("direction").optional({ nullable: true }).trim(),
+    body("timestamp").optional({ nullable: true }).isISO8601().withMessage("timestamp must be a valid ISO date"),
+    body("routeId").optional({ nullable: true }).isInt({ min: 1 }).withMessage("routeId must be a positive integer"),
+    body("routeName").optional({ nullable: true }).trim(),
+  ],
+  nearby: [
+    body("latitude").optional().isFloat({ min: -90, max: 90 }).withMessage("latitude must be between -90 and 90"),
+    body("longitude").optional().isFloat({ min: -180, max: 180 }).withMessage("longitude must be between -180 and 180"),
+  ],
+};
+
 module.exports = {
   userValidation,
   busValidation,
@@ -350,4 +417,5 @@ module.exports = {
   tripValidation,
   complaintValidation,
   feedbackValidation,
+  liveTrackingValidation,
 };

@@ -1,4 +1,5 @@
-const { User } = require("../models");
+const { Op } = require("sequelize");
+const { Route, User } = require("../models");
 const ApiError = require("../utils/ApiError");
 
 // ── Route subscription helpers ────────────────────────────────────────────────
@@ -35,8 +36,97 @@ const coerceRoutesArray = (value) => {
   return [];
 };
 
+const isRouteIdValue = (value) => {
+  const normalizedValue = normalizeRouteValue(value);
+  if (!normalizedValue) return false;
+
+  const parsed = Number(normalizedValue);
+  return Number.isInteger(parsed) && parsed > 0 && `${parsed}` === normalizedValue;
+};
+
+const normalizeRouteId = (value) => {
+  if (!isRouteIdValue(value)) return null;
+  return Number(normalizeRouteValue(value));
+};
+
+const uniqueRouteIds = (routes = []) => {
+  const result = [];
+  const seen = new Set();
+
+  for (const route of routes) {
+    const routeId = normalizeRouteId(route);
+    if (!routeId || seen.has(routeId)) continue;
+    seen.add(routeId);
+    result.push(routeId);
+  }
+
+  return result;
+};
+
+const coerceRouteIdsArray = (value) => uniqueRouteIds(coerceRoutesArray(value));
+
 const mergeRoutes = (existing = [], incoming = []) =>
   uniqueRoutes([...coerceRoutesArray(existing), ...coerceRoutesArray(incoming)]);
+
+const resolveRoutesFromInputs = async (routes = [], { strict = true } = {}) => {
+  const inputs = coerceRoutesArray(routes);
+  if (!inputs.length) return [];
+
+  const routeIds = uniqueRouteIds(inputs);
+  const routeNames = uniqueRoutes(inputs.filter((value) => !isRouteIdValue(value)));
+
+  const foundRoutes = [];
+
+  if (routeIds.length) {
+    const routesById = await Route.findAll({
+      where: { id: { [Op.in]: routeIds } },
+      attributes: ["id", "routeName"],
+    });
+    foundRoutes.push(...routesById);
+  }
+
+  if (routeNames.length) {
+    const routesByName = await Route.findAll({
+      where: { routeName: { [Op.in]: routeNames } },
+      attributes: ["id", "routeName"],
+    });
+    foundRoutes.push(...routesByName);
+  }
+
+  const uniqueFoundRoutes = [];
+  const seenIds = new Set();
+  for (const route of foundRoutes) {
+    if (seenIds.has(route.id)) continue;
+    seenIds.add(route.id);
+    uniqueFoundRoutes.push(route);
+  }
+
+  const foundIdSet = new Set(uniqueFoundRoutes.map((route) => route.id));
+  const foundNameSet = new Set(uniqueFoundRoutes.map((route) => normalizeRouteKey(route.routeName)));
+
+  const missingRouteIds = routeIds.filter((routeId) => !foundIdSet.has(routeId));
+  const missingRouteNames = routeNames.filter((routeName) => !foundNameSet.has(normalizeRouteKey(routeName)));
+
+  if (strict && (missingRouteIds.length || missingRouteNames.length)) {
+    const missingValue = missingRouteIds[0] ?? missingRouteNames[0];
+    throw new ApiError(404, `Route not found (${missingValue})`);
+  }
+
+  return uniqueFoundRoutes;
+};
+
+const syncPassengerRoutePreferences = async (user, routes) => {
+  const resolvedRoutes = Array.isArray(routes) && routes.length && routes[0]?.routeName
+    ? routes
+    : await resolveRoutesFromInputs(routes);
+
+  await user.update({
+    favoriteRoutes: uniqueRouteIds(resolvedRoutes.map((route) => route.id)),
+    subscribedRoutes: uniqueRoutes(resolvedRoutes.map((route) => route.routeName)),
+  });
+
+  return user;
+};
 
 const normalizeSubscribedRoutes = (data) =>
   Array.isArray(data.subscribedRoutes) ? uniqueRoutes(data.subscribedRoutes) : undefined;
@@ -137,7 +227,7 @@ const updateUser = async (id, data) => {
 
 const updatePassengerSubscriptions = async (userId, subscribedRoutes) => {
   if (!Array.isArray(subscribedRoutes)) {
-    throw new ApiError(422, "subscribedRoutes must be an array of route strings");
+    throw new ApiError(422, "subscribedRoutes must be an array of route strings or route ids");
   }
 
   const user = await getUserById(userId);
@@ -145,7 +235,81 @@ const updatePassengerSubscriptions = async (userId, subscribedRoutes) => {
     throw new ApiError(403, "Only passengers can update route subscriptions");
   }
 
-  await user.update({ subscribedRoutes: mergeRoutes(user.subscribedRoutes, subscribedRoutes) });
+  const resolvedRoutes = await resolveRoutesFromInputs(subscribedRoutes);
+  return syncPassengerRoutePreferences(user, resolvedRoutes);
+};
+
+const getPassengerFavoriteRoutes = async (userId, { search } = {}) => {
+  const user = await getUserById(userId);
+  if (user.role !== "passenger") {
+    throw new ApiError(403, "Only passengers can access favorite routes");
+  }
+
+  const routeInputs = coerceRouteIdsArray(user.favoriteRoutes).length
+    ? coerceRouteIdsArray(user.favoriteRoutes)
+    : coerceRoutesArray(user.subscribedRoutes);
+
+  const routes = await resolveRoutesFromInputs(routeInputs, { strict: false });
+
+  const searchText = `${search || ""}`.trim().toLowerCase();
+  const filteredRoutes = searchText
+    ? routes.filter((route) => {
+        const haystack = [route.routeName, route.from, route.to].map((value) => `${value || ""}`.toLowerCase());
+        return haystack.some((value) => value.includes(searchText));
+      })
+    : routes;
+
+  return {
+    total: filteredRoutes.length,
+    routes: filteredRoutes,
+  };
+};
+
+const addPassengerFavoriteRoute = async (userId, routeId) => {
+  const user = await getUserById(userId);
+  if (user.role !== "passenger") {
+    throw new ApiError(403, "Only passengers can update favorite routes");
+  }
+
+  const normalizedRouteId = normalizeRouteId(routeId);
+  if (!normalizedRouteId) {
+    throw new ApiError(422, "routeId must be a positive integer");
+  }
+
+  const route = await Route.findByPk(normalizedRouteId, { attributes: ["id", "routeName"] });
+  if (!route) {
+    throw new ApiError(404, "Route not found");
+  }
+
+  const favoriteRoutes = uniqueRouteIds([...coerceRouteIdsArray(user.favoriteRoutes), route.id]);
+  const subscribedRoutes = uniqueRoutes([...coerceRoutesArray(user.subscribedRoutes), route.routeName]);
+
+  await user.update({ favoriteRoutes, subscribedRoutes });
+  return user;
+};
+
+const removePassengerFavoriteRoute = async (userId, routeId) => {
+  const user = await getUserById(userId);
+  if (user.role !== "passenger") {
+    throw new ApiError(403, "Only passengers can update favorite routes");
+  }
+
+  const normalizedRouteId = normalizeRouteId(routeId);
+  if (!normalizedRouteId) {
+    throw new ApiError(422, "routeId must be a positive integer");
+  }
+
+  const route = await Route.findByPk(normalizedRouteId, { attributes: ["id", "routeName"] });
+  if (!route) {
+    throw new ApiError(404, "Route not found");
+  }
+
+  const favoriteRoutes = coerceRouteIdsArray(user.favoriteRoutes).filter((id) => id !== route.id);
+  const subscribedRoutes = uniqueRoutes(
+    coerceRoutesArray(user.subscribedRoutes).filter((value) => normalizeRouteKey(value) !== normalizeRouteKey(route.routeName))
+  );
+
+  await user.update({ favoriteRoutes, subscribedRoutes });
   return user;
 };
 
@@ -153,6 +317,8 @@ const deleteUser = async (id) => {
   const user = await getUserById(id);
   await user.update({ isActive: false });
 };
+
+
 
 module.exports = {
   getAllUsers,
@@ -162,5 +328,8 @@ module.exports = {
   createUser,
   updateUser,
   updatePassengerSubscriptions,
+  getPassengerFavoriteRoutes,
+  addPassengerFavoriteRoute,
+  removePassengerFavoriteRoute,
   deleteUser,
 };
