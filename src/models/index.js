@@ -4,12 +4,15 @@ const User       = require("./user.model");
 const News       = require("./news.model");
 const Alert      = require("./alerts.model");
 const BusDetails = require("./bus_details.model");
+const BusLiveLocation = require("./bus_live_location.model");
 const Route      = require("./route.model");
 const Stop       = require("./stop.model");
 const RouteStop  = require("./route_stops.model");
 const Trip       = require("./trip.model");
 const Complaint  = require("./complaint.model");
 const Feedback   = require("./feedback.model");
+const OTP        = require("./otpmodel");
+const Report     = require("./report.model");
 
 // ── User ↔ BusDetails (one-to-one via userId)
 User.hasOne(BusDetails,    { foreignKey: "userId", as: "busDetails" });
@@ -19,6 +22,10 @@ BusDetails.belongsTo(User, { foreignKey: "userId", as: "user" });
 User.hasMany(Complaint, { foreignKey: "userId", as: "complaints" });
 Complaint.belongsTo(User, { foreignKey: "userId", as: "user" });
 
+// ── User ↔ Report (one-to-many)
+User.hasMany(Report, { foreignKey: "userId", as: "reports" });
+Report.belongsTo(User, { foreignKey: "userId", as: "user" });
+
 // ── User ↔ Feedback (one-to-many)
 User.hasMany(Feedback, { foreignKey: "userId", as: "feedbacks" });
 Feedback.belongsTo(User, { foreignKey: "userId", as: "user" });
@@ -26,6 +33,13 @@ Feedback.belongsTo(User, { foreignKey: "userId", as: "user" });
 // ── Route ↔ BusDetails (one-to-many via routeId)
 Route.hasMany(BusDetails,   { foreignKey: "routeId", as: "buses" });
 BusDetails.belongsTo(Route, { foreignKey: "routeId", as: "route" });
+
+// ── BusDetails/Route ↔ BusLiveLocation
+BusDetails.hasMany(BusLiveLocation,      { foreignKey: "busId", as: "liveLocations" });
+BusLiveLocation.belongsTo(BusDetails,    { foreignKey: "busId", as: "bus" });
+
+Route.hasMany(BusLiveLocation,           { foreignKey: "routeId", as: "liveLocations" });
+BusLiveLocation.belongsTo(Route,         { foreignKey: "routeId", as: "route" });
 
 // ── Route ↔ RouteStop (one-to-many) and RouteStop ↔ Stop (many-to-one)
 Route.hasMany(RouteStop,   { foreignKey: "routeId", as: "routeStops" });
@@ -54,10 +68,13 @@ module.exports = {
   News,
   Alert,
   BusDetails,
+  BusLiveLocation,
   Route,
   Stop,
   RouteStop,
   Trip,
   Complaint,
   Feedback,
+  Report,
+  OTP,
 };

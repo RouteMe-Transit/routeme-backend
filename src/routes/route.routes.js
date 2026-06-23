@@ -6,6 +6,7 @@ const { routeValidation } = require("../middlewares/validate.middleware");
 const router = Router();
 
 router.get("/",    c.getAll);
+router.get("/search", c.getAll);
 router.get("/:id", c.getById);
 
 router.use(authenticate, authorize("admin"));

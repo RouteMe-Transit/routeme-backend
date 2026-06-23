@@ -9,8 +9,14 @@ const busTripRoutes   = require("./bus-trip.routes");
 const routeRoutes     = require("./route.routes");
 const stopRoutes      = require("./stop.routes");
 const tripRoutes      = require("./trip.routes");
+const liveTrackingRoutes = require("./live-tracking.routes");
+
+
+// your feature
 const complaintRoutes = require("./complaint.routes");
 const feedbackRoutes  = require("./feedback.routes");
+const reportRoutes    = require("./report.routes");
+
 
 const router = Router();
 
@@ -21,6 +27,7 @@ router.use("/news",      newsRoutes);
 
 // ── System Routes ───────────────────────────────────────────
 router.use("/alerts",     alertRoutes);
+router.use("/buses/live", liveTrackingRoutes);
 router.use("/buses",      busRoutes);
 router.use("/bus-trips",  busTripRoutes);
 router.use("/routes",     routeRoutes);
@@ -29,6 +36,7 @@ router.use("/trips",      tripRoutes);
 
 router.use("/complaints", complaintRoutes);
 router.use("/feedbacks",  feedbackRoutes);
+router.use("/reports", reportRoutes);
 
 // ── Test Route ───────────────────────────────────────────────
 router.get("/test", (req, res) =>
