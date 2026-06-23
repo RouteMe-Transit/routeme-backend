@@ -1,15 +1,6 @@
-// validate.middleware.js
-
 const { body } = require("express-validator");
 
 // ── Shared helpers ────────────────────────────────────────────────────────────
-
-const isValidRouteArray = (value) => {
-  if (!Array.isArray(value)) throw new Error("subscribedRoutes must be an array of route strings");
-  if (value.some((r) => (typeof r !== "string" && typeof r !== "number") || `${r}`.trim() === ""))
-    throw new Error("Each subscribed route must be a non-empty string or route id");
-  return true;
-};
 
 const isPositiveRouteId = (value) => {
   const parsed = Number(value);
@@ -29,21 +20,13 @@ const userValidation = {
       .bail()
       .isIn(["admin", "bus"]).withMessage("Role must be admin or bus"),
     body("phone").optional().trim(),
-    body("subscribedRoutes").optional({ nullable: true }).custom(isValidRouteArray),
   ],
   update: [
     body("firstName").optional().trim().notEmpty().withMessage("First name cannot be empty"),
     body("lastName").optional().trim().notEmpty().withMessage("Last name cannot be empty"),
     body("email").optional().isEmail().normalizeEmail().withMessage("Valid email is required"),
     body("phone").optional().trim(),
-    body("subscribedRoutes").optional({ nullable: true }).custom(isValidRouteArray),
     body("role").optional().isIn(["admin", "passenger", "bus"]).withMessage("Invalid role"),
-  ],
-  updateSubscriptions: [
-    body("subscribedRoutes")
-      .exists().withMessage("subscribedRoutes is required")
-      .bail()
-      .custom(isValidRouteArray),
   ],
   favoriteRoute: [
     body("routeId")
@@ -156,29 +139,18 @@ const authValidation = {
       .isEmail()
       .normalizeEmail()
       .withMessage("Valid email is required"),
-
     body("registrationNumber")
       .optional()
       .trim()
       .notEmpty()
       .withMessage("Registration number is required"),
-
     body().custom((value) => {
-      if (
-        !value ||
-        (!value.email && !value.registrationNumber)
-      ) {
-        throw new Error(
-          "Either email or registration number is required"
-        );
+      if (!value || (!value.email && !value.registrationNumber)) {
+        throw new Error("Either email or registration number is required");
       }
-
       return true;
     }),
-
-    body("password")
-      .notEmpty()
-      .withMessage("Password is required"),
+    body("password").notEmpty().withMessage("Password is required"),
   ],
   register: [
     body("firstName").trim().notEmpty().withMessage("First name is required"),
@@ -194,68 +166,46 @@ const authValidation = {
       }),
   ],
   forgotPassword: [
-  body("email").isEmail().normalizeEmail().withMessage("Valid email is required"),
-],
-verifyResetOTP: [
-  body("email").isEmail().normalizeEmail().withMessage("Valid email is required"),
-  body("otp")
-    .trim()
-    .notEmpty().withMessage("Code is required")
-    .bail()
-    .isLength({ min: 6, max: 6 }).withMessage("Code must be 6 digits")
-    .bail()
-    .isNumeric().withMessage("Code must be numeric"),
-],
-resetPassword: [
-  body("email").isEmail().normalizeEmail().withMessage("Valid email is required"),
-  body("otp")
-    .trim()
-    .notEmpty().withMessage("Code is required")
-    .bail()
-    .isLength({ min: 6, max: 6 }).withMessage("Code must be 6 digits")
-    .bail()
-    .isNumeric().withMessage("Code must be numeric"),
-  body("newPassword").isLength({ min: 8 }).withMessage("Password must be at least 8 characters"),
-  body("confirmNewPassword")
-    .notEmpty().withMessage("Confirm password is required")
-    .custom((value, { req }) => {
-      if (value !== req.body.newPassword) throw new Error("Passwords do not match");
-      return true;
-    }),
-],
-
+    body("email").isEmail().normalizeEmail().withMessage("Valid email is required"),
+  ],
+  verifyResetOTP: [
+    body("email").isEmail().normalizeEmail().withMessage("Valid email is required"),
+    body("otp")
+      .trim()
+      .notEmpty().withMessage("Code is required")
+      .bail()
+      .isLength({ min: 6, max: 6 }).withMessage("Code must be 6 digits")
+      .bail()
+      .isNumeric().withMessage("Code must be numeric"),
+  ],
+  resetPassword: [
+    body("email").isEmail().normalizeEmail().withMessage("Valid email is required"),
+    body("otp")
+      .trim()
+      .notEmpty().withMessage("Code is required")
+      .bail()
+      .isLength({ min: 6, max: 6 }).withMessage("Code must be 6 digits")
+      .bail()
+      .isNumeric().withMessage("Code must be numeric"),
+    body("newPassword").isLength({ min: 8 }).withMessage("Password must be at least 8 characters"),
+    body("confirmNewPassword")
+      .notEmpty().withMessage("Confirm password is required")
+      .custom((value, { req }) => {
+        if (value !== req.body.newPassword) throw new Error("Passwords do not match");
+        return true;
+      }),
+  ],
 };
 
 // ── Alert validations ─────────────────────────────────────────────────────────
 
 const ALERT_TYPES = [
-  // canonical forms (lowercase with spaces)
-  'service distruption',
-  'road block',
-  'delay',
-  'accident',
-  'breakdown',
-  'weather',
-  'not operating',
-  'heavy rain',
-  'damaged roads',
-  'rule enforcement',
-  'new bus stop',
-  'removed bus stop',
-  'route change',
-  'public events',
-  'other',
-  // hyphenated forms (from frontend)
-  'service-distruption',
-  'road-block',
-  'not-operating',
-  'heavy-rain',
-  'damaged-roads',
-  'rule-enforcement',
-  'new-bus-stop',
-  'removed-bus-stop',
-  'route-change',
-  'public-events',
+  'service distruption', 'road block', 'delay', 'accident', 'breakdown',
+  'weather', 'not operating', 'heavy rain', 'damaged roads', 'rule enforcement',
+  'new bus stop', 'removed bus stop', 'route change', 'public events', 'other',
+  'service-distruption', 'road-block', 'not-operating', 'heavy-rain',
+  'damaged-roads', 'rule-enforcement', 'new-bus-stop', 'removed-bus-stop',
+  'route-change', 'public-events',
 ];
 
 const alertValidation = {
@@ -284,18 +234,14 @@ const alertValidation = {
     body().custom((_, { req }) => {
       const routeValue = req.body.targetRoute || req.body.affectedRoute;
       const targetAudience = req.body.targetAudience || (routeValue ? "route" : "public");
-
       if (targetAudience === "route" && !routeValue) {
         throw new Error("Affected route is required when target audience is route");
       }
-
       return true;
     }),
   ],
   busSend: [
-    body("alertType")
-      .trim().notEmpty().withMessage("Alert type is required")
-      .bail(),
+    body("alertType").trim().notEmpty().withMessage("Alert type is required").bail(),
     body("title").optional({ nullable: true }).trim(),
     body("description").optional({ nullable: true }).trim(),
     body("content").optional({ nullable: true }).trim(),
@@ -319,44 +265,20 @@ const isValidDaysArray = (value) => {
 
 const tripValidation = {
   create: [
-    body("routeId")
-      .notEmpty().withMessage("routeId is required")
-      .bail()
-      .isInt({ min: 1 }).withMessage("routeId must be a positive integer"),
-    body("busId")
-      .notEmpty().withMessage("busId is required")
-      .bail()
-      .isInt({ min: 1 }).withMessage("busId must be a positive integer"),
-    body("direction")
-      .optional()
-      .isIn(["forward", "return"]).withMessage("direction must be forward or return"),
-    body("departureTime")
-      .notEmpty().withMessage("departureTime is required")
-      .bail()
-      .matches(/^\d{2}:\d{2}(:\d{2})?$/).withMessage("departureTime must be HH:MM or HH:MM:SS"),
-    body("arrivalTime")
-      .notEmpty().withMessage("arrivalTime is required")
-      .bail()
-      .matches(/^\d{2}:\d{2}(:\d{2})?$/).withMessage("arrivalTime must be HH:MM or HH:MM:SS"),
-    body("days")
-      .optional()
-      .custom(isValidDaysArray),
+    body("routeId").notEmpty().withMessage("routeId is required").bail().isInt({ min: 1 }).withMessage("routeId must be a positive integer"),
+    body("busId").notEmpty().withMessage("busId is required").bail().isInt({ min: 1 }).withMessage("busId must be a positive integer"),
+    body("direction").optional().isIn(["forward", "return"]).withMessage("direction must be forward or return"),
+    body("departureTime").notEmpty().withMessage("departureTime is required").bail().matches(/^\d{2}:\d{2}(:\d{2})?$/).withMessage("departureTime must be HH:MM or HH:MM:SS"),
+    body("arrivalTime").notEmpty().withMessage("arrivalTime is required").bail().matches(/^\d{2}:\d{2}(:\d{2})?$/).withMessage("arrivalTime must be HH:MM or HH:MM:SS"),
+    body("days").optional().custom(isValidDaysArray),
   ],
   update: [
     body("routeId").optional().isInt({ min: 1 }).withMessage("routeId must be a positive integer"),
     body("busId").optional().isInt({ min: 1 }).withMessage("busId must be a positive integer"),
-    body("direction")
-      .optional()
-      .isIn(["forward", "return"]).withMessage("direction must be forward or return"),
-    body("departureTime")
-      .optional()
-      .matches(/^\d{2}:\d{2}(:\d{2})?$/).withMessage("departureTime must be HH:MM or HH:MM:SS"),
-    body("arrivalTime")
-      .optional()
-      .matches(/^\d{2}:\d{2}(:\d{2})?$/).withMessage("arrivalTime must be HH:MM or HH:MM:SS"),
-    body("days")
-      .optional()
-      .custom(isValidDaysArray),
+    body("direction").optional().isIn(["forward", "return"]).withMessage("direction must be forward or return"),
+    body("departureTime").optional().matches(/^\d{2}:\d{2}(:\d{2})?$/).withMessage("departureTime must be HH:MM or HH:MM:SS"),
+    body("arrivalTime").optional().matches(/^\d{2}:\d{2}(:\d{2})?$/).withMessage("arrivalTime must be HH:MM or HH:MM:SS"),
+    body("days").optional().custom(isValidDaysArray),
   ],
 };
 
@@ -367,9 +289,7 @@ const complaintValidation = {
     body("description").trim().notEmpty().withMessage("Description is required"),
   ],
   updateStatus: [
-    body("status")
-      .isIn(["Pending", "Resolved"])
-      .withMessage("Status must be Pending or Resolved"),
+    body("status").isIn(["Pending", "Resolved"]).withMessage("Status must be Pending or Resolved"),
   ],
 };
 

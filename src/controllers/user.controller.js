@@ -46,19 +46,6 @@ const update = async (req, res, next) => {
   }
 };
 
-const updateMySubscriptions = async (req, res, next) => {
-  try {
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) throw new ApiError(422, "Validation failed", errors.array());
-
-    const user = await userService.updatePassengerSubscriptions(req.user.id, req.body.subscribedRoutes);
-
-    ApiResponse.success(res, user, "Subscribed routes updated successfully");
-  } catch (err) {
-    next(err);
-  }
-};
-
 const getMyFavoriteRoutes = async (req, res, next) => {
   try {
     const { search } = req.query;
@@ -99,14 +86,11 @@ const remove = async (req, res, next) => {
   }
 };
 
-
-
 module.exports = {
   getAll,
   getById,
   create,
   update,
-  updateMySubscriptions,
   getMyFavoriteRoutes,
   addMyFavoriteRoute,
   removeMyFavoriteRoute,

@@ -228,6 +228,24 @@ const getNearbyBuses = async ({
   };
 };
 
+const getAllBuses = async () => {
+  await refreshLiveStatuses();
+ 
+  const buses = await BusDetails.findAll({
+    where: { isActive: true },
+    include: [{ model: Route, as: "route", attributes: ["id", "routeName", "from", "to"] }],
+    order: [["lastSeenAt", "DESC"]],
+  });
+ 
+  const mapped = buses.map((bus) => mapBusLiveResponse(bus));
+ 
+  return {
+    count: mapped.length,
+    buses: mapped,
+    pollingIntervalSeconds: 15,
+  };
+};
+
 const getBusesByRoute = async ({
   routeId,
   routeName,
@@ -297,4 +315,5 @@ module.exports = {
   uploadLocation,
   getNearbyBuses,
   getBusesByRoute,
+  getAllBuses,
 };

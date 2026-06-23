@@ -40,8 +40,19 @@ const getBusesByRoute = async (req, res, next) => {
   }
 };
 
+const getAllBuses = async (req, res, next) => {
+  try {
+    const result = await liveTrackingService.getAllBuses();
+    ApiResponse.success(res, result, "All buses fetched");
+  } catch (err) {
+    next(err);
+  }
+};
+
 module.exports = {
   uploadLocation,
   getNearbyBuses,
   getBusesByRoute,
+  getAllBuses,
 };
+
