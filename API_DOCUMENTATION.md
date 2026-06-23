@@ -106,7 +106,6 @@ Response `200`:
 ---
 
 ## 2.User Endpoints
-Access: Admin only (all routes require token + admin role)
 
 ### 2.1 GET /users
 Description: Returns alist of users.
@@ -128,7 +127,7 @@ Response `200`:
         "isActive": true
       },
       {
-        "id:" 2,
+        "id": 2,
         "firstName": "Jane",
         "lastName": "Doe",
         "email": "janedoe@gmail.com",
@@ -185,8 +184,6 @@ Response `201`:
     "firstName": "Jane",
     "lastName": "Doe",
     "email": "jane@example.com",
-    "password": "password123",
-    "confirmPassword": "password123",
     "role": "bus"
   }
 
@@ -215,8 +212,6 @@ Response `200`:
     "firstName": "Jane",
     "lastName": "Doe",
     "email": "bus@email.com"
-    "password": "password123",
-    "confirmPassword": "password123",
     "role": "bus"
   }
 
@@ -234,7 +229,85 @@ Response `200`:
   "data": null
 }
 ```
+### 2.6 GET /users/me/favorite-routes
+Description: Get passenger's favoutite routes.
+Access: Authenticated(passenger)
+Response `200`:
+```json
+{
+    "success": true,
+    "message": "Success",
+    "data": {
+        "total": 2,
+        "routes": [
+            {
+                "id": 1,
+                "routeName": "Route 100"
+            },
+            {
+                "id": 2,
+                "routeName": "Route 101"
+            }
+        ]
+    }
+}
+```
+### 2.7 POST /users/me/favorite-routes
+Description: Add favourite route
+Access: Authenticated(passenger)
+Body:
+```json
+{
+  "routeId": 2
+}
+```
+Response `200`:
+```json
+{
+    "success": true,
+    "message": "Route added to favorites successfully",
+    "data": {
+        "id": 10,
+        "firstName": "Passenger",
+        "lastName": "2",
+        "email": "passenger2@gmail.com",
+        "phone": "0712345678",
+        "favoriteRoutes": [
+            1,
+            2
+        ],
+        "role": "passenger",
+        "isActive": true,
+        "createdAt": "2026-05-12T13:47:10.000Z",
+        "updatedAt": "2026-06-22T16:32:43.575Z"
+    }
+}
+```
 
+### 2.8 DELETE /users/me/favorite-routes/:routeId
+Description: Remove Favourite routes.
+Access: Authenticated(passenger)
+Response `200`:
+```json
+{
+    "success": true,
+    "message": "Route removed from favorites successfully",
+    "data": {
+        "id": 10,
+        "firstName": "Passenger",
+        "lastName": "2",
+        "email": "passenger2@gmail.com",
+        "phone": "0712345678",
+        "favoriteRoutes": [
+            1
+        ],
+        "role": "passenger",
+        "isActive": true,
+        "createdAt": "2026-05-12T13:47:10.000Z",
+        "updatedAt": "2026-06-22T16:36:53.406Z"
+    }
+}
+```
 ---
 
 ## 3. Route Endpoints
@@ -287,14 +360,13 @@ Response `200`:
     "message": "Success",
     "data": {
         "id": 1,
-        "routeNumber": "100",
-        "routeName": "Panadura - Pettah",
+        "routeNumber": "102",
+        "routeName": "Moratuwa - Pettah",
         "routeType": "Express",
-        "origin": "Panadura",
+        "origin": "Moratuwa",
         "destination": "Pettah",
-        "distance": 25,
-        "duration": 180,
-        "isActive": true,
+        "distance": 15,
+        "duration": 45,
         "buses": [
             { "id": 5, 
             "busNumber": "NB-001", 
@@ -306,7 +378,25 @@ Response `200`:
             "licensePlate": "WP-NA-5678", 
             "status": "Active" 
             }
-        ]
+        ],
+        "stops": [
+      {
+        "stopId": 1,
+        "stopSequence": 1,
+        "timeFromStart": 0
+      },
+      {
+        "stopId": 5,
+        "stopSequence": 2,
+        "timeFromStart": 20
+      },
+      {
+        "stopId": 2,
+        "stopSequence": 3,
+        "timeFromStart": 45
+      }
+    ],
+        "isActive": true,
     }
 }
 ```
@@ -323,7 +413,24 @@ Body:
   "origin": "Moratuwa",
   "destination": "Pettah",
   "distance": 15,
-  "duration": 45
+  "duration": 45,
+  "stops": [
+    {
+      "stopId": 1,
+      "stopSequence": 1,
+      "timeFromStart": 0
+    },
+    {
+      "stopId": 5,
+      "stopSequence": 2,
+      "timeFromStart": 20
+    },
+    {
+      "stopId": 2,
+      "stopSequence": 3,
+      "timeFromStart": 45
+    }
+  ]
 }
 ```
 
@@ -341,6 +448,26 @@ Response `201`:
     "destination": "Pettah",
     "distance": 15,
     "duration": 45,
+    "stops": [
+    {
+      "stopId": 001,
+      "stopName": "Rathmalana",
+      "stopSequence": 1,
+      "timeFromStart": 0
+    },
+    {
+      "stopId": 005,
+      "stopSequence": 2,
+      "stopName": "Dehiwala",
+      "timeFromStart": 20
+    },
+    {
+      "stopId": 002,
+      "stopSequence": 3,
+      "stopName": "Pettah",
+      "timeFromStart": 45
+    }
+    ],
     "isActive": true
   }
 }
@@ -377,7 +504,7 @@ Response `200`:
 }
 ```
 
-### 3.4 SELETE /routes/:id
+### 3.5 DELETE /routes/:id
 Description: Deactivates a route if no buses are assigned.
 
 Response `200`:
@@ -400,10 +527,95 @@ Response `400`:
 
 ---
 
-## 4. Bus Endpoints
+## 4. Stop Endpoints
+
+
+### 4.1 POST /stops
+Description: Create a stop
+Access: Admin
+Body:
+```json
+{
+  "name": "Colombo Fort",
+  "latitude": 6.9344,
+  "longitude": 79.8428
+}
+```
+Response `201`:
+```json
+{
+  "success": true,
+  "message": "Stop created successfully",
+  "data": {
+    "id": 1,
+    "name": "Colombo Fort",
+    "latitude": 6.9344,
+    "longitude": 79.8428
+  }
+}
+```
+
+### 4.2 Get All Stops
+Description: Get a list of stops.
+Access:Public
+Response `200`:
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "id": 1,
+      "name": "Colombo Fort",
+      "latitude": 6.9344,
+      "longitude": 79.8428
+    },
+    {
+      "id": 2,
+      "name": "Kandy",
+      "latitude": 7.2906,
+      "longitude": 80.6337
+    }
+  ]
+}
+```
+### 4.3 PATCH /stops/:id
+Description: Update a stop
+Access: Admin
+Body:
+```json
+{
+  "name": "Colombo Fort Main Stop"
+}
+```
+Response `200`:
+```json
+{
+  "success": true,
+  "message": "Stop updated successfully",
+  "data": {
+    "id": 1,
+    "name": "Colombo Fort Main Stop",
+    "latitude": 6.9344,
+    "longitude": 79.8428
+  }
+}
+```
+
+### 4.4 DELETE /stops/:id
+Description: Soft delete a stop
+Access: Admin
+Response `200`:
+```json
+{
+  "success": true,
+  "message": "Stop deleted successfully"
+}
+```
+
+## 5. Bus Endpoints
 Access: Admin
 
-### 4.1 GET /buses
+### 5.1 GET /buses
 Description: Returns a list of buses.
 
 Response `200`: 
@@ -455,7 +667,7 @@ Response `200`:
   }
 }
 ```
-### 4.2 GET /buses/:id
+### 5.2 GET /buses/:id
 Description: Returns details for a single bus by ID.
 Response `200`: 
 
@@ -492,7 +704,7 @@ Response `200`:
 
 ```
 
-### 4.3 POST /buses
+### 5.3 POST /buses
 Description: Creates a new bus account.
 Body:
 
@@ -553,7 +765,7 @@ Response `201`:
 
 ```
 
-### 4.4 PUT /buses/:id
+### 5.4 PUT /buses/:id
 Description: Updates an existing bus record by ID.
 Body:
 ```json
@@ -579,7 +791,7 @@ Response `200`:
 }
 ```
 
-### 4.5 DELETE /buses/:id
+### 5.5 DELETE /buses/:id
 Description: Deactivates a bus and marks its operational status as inactive. (`isActive = false`, `status = Inactive`)
 
 Response `200`:
@@ -592,36 +804,13 @@ Response `200`:
 }
 ```
 
-### 4.6 PATCH /buses/location
-Access: Authenticated
-Description: Fetch location from phone logged into bus account.
-Body:
-```json
-{
-  "latitude": 6.9271,
-  "longitude": 79.8612
-}
-```
-Response `200`:
-```json
-{
-    
-  "success": true,
-  "message": "Bus location updated successfully",
-  "data": {
-    "busId": 1,
-    "latitude": 6.9271,
-    "longitude": 79.8612,
-    "recordedAt": "2026-04-01"
-  }
-}
-```
+
 
 ---
 
-## 5. News Endpoints
+## 6. News Endpoints
 
-### 5.1 GET /news
+### 6.1 GET /news
 Description: Returns a list of news items.(Only summary data)
 Access: Public
 
@@ -651,7 +840,7 @@ Response `200`:
 }
 ```
 
-### 5.2 GET /news/:id
+### 6.2 GET /news/:id
 Description: Returns a single news item by ID.
 Access: Public
 
@@ -672,7 +861,7 @@ Response `200`:
 }
 ```
 
-### 5.3 POST /news
+### 6.3 POST /news
 Description: Creates a news item.
 Access: Admin only
 
@@ -704,7 +893,7 @@ Response `201`:
 }
 ```
 
-### 5.4 PATCH /news/:id
+### 6.4 PATCH /news/:id
 Description: Updates an existing news item by ID.
 Access: Admin only
 Body:
@@ -732,7 +921,7 @@ Response `200`:
 }
 ```
 
-### 5.5 DELETE /news/:id
+### 6.5 DELETE /news/:id
 Description: Soft deletes a news item so it no longer appears in default queries.(`isDeleted = true`)
 Access: Admin only
 
@@ -747,130 +936,286 @@ Response `200`:
 ```
 ---
 
-## 6. Alert Endpoints
+## 7. Alert Endpoints
 
-### 6.1 POST /alerts
+### 7.1 POST /alerts
 Description: Send alerts for passenger. (`affectedBus, affectedRoute, targetRoute` are optional. if `targetRoute` is not provided it will be a public alert.)
 Access: Admin
 Body:
 ```json
 {
-  "alertType": "Delay",
-  "title": "Route 100 Delay",
-  "content": "Buses are delayed by 20 minutes.",
-  "affectedBusOrRoute": "Route 100 Panadura - Pettah",
-  "targetRoute": 1
+  "alertType": "delay",
+  "title": "Bus Delay on Colombo-Kandy Route",
+  "description": "All buses on the Colombo to Kandy route are experiencing 15 minutes delay due to traffic congestion.",
+  "targetAudience": "route",
+  "affectedRoute": "Colombo to Kandy",
+  "affectedBus": null
 }
 ```
 Response `201`: 
 ```json
 {
-  "success": true,
-  "message": "Alert created successfully",
-  "data": {
-    "id": 1,
-    "alertType": "Delay",
-    "title": "Route 100 Delay",
-    "content": "Buses are delayed by 20 minutes.",
-    "affectedBusOrRoute": "Route 100 Panadura - Pettah"
-    "targetRoute": 1,
-    "isPublic": false,
-    "createdAt": "2026-04-01"
-  }
+    "success": true,
+    "message": "Alert created successfully",
+    "data": {
+        "recipientCount": 2,
+        "isDeleted": false,
+        "id": 29,
+        "alertType": "delay",
+        "affectedRoute": "Colombo to Kandy",
+        "affectedBus": null,
+        "title": "Bus Delay on Colombo-Kandy Route",
+        "description": "All buses on the Colombo to Kandy route are experiencing 15 minutes delay due to traffic congestion.",
+        "targetAudience": "route",
+        "scheduledAt": null,
+        "status": "sent",
+        "sentAt": "2026-06-10T15:55:40.451Z",
+        "createdBy": 2,
+        "updatedAt": "2026-06-10T15:55:40.451Z",
+        "createdAt": "2026-06-10T15:55:40.391Z",
+        "deliveryMeta": {
+            "targetAudience": "route",
+            "affectedRoute": "Colombo to Kandy",
+            "affectedBus": null,
+            "dispatchedAt": "2026-06-10T15:55:40.451Z"
+        }
+    }
 }
 ```
-### 6.2 GET /alerts
-Description: Get alerts
-Access: Authenticated
+### 7.2 GET /alerts/history
+Description: Get alerts history(created only by admin role)
+Access: Admin
 Response `200`:
 ```json
 {
   "success": true,
   "message": "Success",
   "data": {
-    "alerts": [
-      {
-        "id": 1,
-        "alertType": "Delay",
-        "title": "Route 100 Delay",
-        "content": "Buses are delayed by 20 minutes.",
-        "affectedRoute": 1,
-        "isPublic": false,
-        "createdAt": "2026-04-01"
-      },
-      {
-        "id": 2,
-        "alertType": "General",
-        "title": "Holiday Notice",
-        "content": "Special schedules for holidays.",
-        "isPublic": true,
-        "createdAt": "2026-04-01"
-      }
-    ]
+          "total": 26,
+          "page": 1,
+          "totalPages": 3,
+          "alerts": [
+              {
+                  "id": 29,
+                  "alertType": "delay",
+                  "affectedRoute": "Colombo to Kandy",
+                  "affectedBus": null,
+                  "title": "Bus Delay on Colombo-Kandy Route",
+                  "description": "All buses on the Colombo to Kandy route are experiencing 15 minutes delay due to traffic congestion.",
+                  "targetAudience": "route",
+                  "status": "sent",
+                  "scheduledAt": null,
+                  "sentAt": "2026-06-10T15:55:40.000Z",
+                  "recipientCount": 2,
+                  "deliveryMeta": {
+                      "affectedBus": null,
+                      "dispatchedAt": "2026-06-10T15:55:40.451Z",
+                      "affectedRoute": "Colombo to Kandy",
+                      "targetAudience": "route"
+                  },
+                  "createdBy": 2,
+                  "isDeleted": false,
+                  "createdAt": "2026-06-10T15:55:40.000Z",
+                  "updatedAt": "2026-06-10T15:55:40.000Z",
+                  "createdByInfo": {
+                      "role": "admin",
+                      "id": 2,
+                      "name": "System Admin",
+                      "displayName": "System Admin"
+                  }
+              }
+          ]
   }
 }
 ```
-### 6.3 DELETE /alerts/:id
-Description: Delete alert
+### 7.3 GET /alerts/history/all
+Description: Get all alerts created by both bus and admin users.
 Access: Admin
-
 Response `200`:
 ```json
 {
   "success": true,
-  "message": "Alert deleted successfully",
-  "data": null
+  "message": "Success",
+  "data": {
+          "total": 29,
+          "page": 1,
+          "totalPages": 3,
+          "alerts": [
+              {
+                  "id": 29,
+                  "alertType": "delay",
+                  "affectedRoute": "Colombo to Kandy",
+                  "affectedBus": null,
+                  "title": "Bus Delay on Colombo-Kandy Route",
+                  "description": "All buses on the Colombo to Kandy route are experiencing 15 minutes delay due to traffic congestion.",
+                  "targetAudience": "route",
+                  "status": "sent",
+                  "scheduledAt": null,
+                  "sentAt": "2026-06-10T15:55:40.000Z",
+                  "recipientCount": 2,
+                  "deliveryMeta": {
+                      "affectedBus": null,
+                      "dispatchedAt": "2026-06-10T15:55:40.451Z",
+                      "affectedRoute": "Colombo to Kandy",
+                      "targetAudience": "route"
+                  },
+                  "createdBy": 2,
+                  "isDeleted": false,
+                  "createdAt": "2026-06-10T15:55:40.000Z",
+                  "updatedAt": "2026-06-10T15:55:40.000Z",
+                  "createdByInfo": {
+                      "role": "admin",
+                      "id": 2,
+                      "name": "System Admin",
+                      "displayName": "System Admin"
+                  }
+              }
+          ]
+  }
 }
 ```
-
-### 6.4 POST /bus-alerts
+### 7.4 POST alerts/bus/send
 Description: Bus can send alerts to passenger that have subscribed to the route.
 Access: Authenticated
 Body:
 ```json
 {
-  "alertType": "Delay", 
-  "routeId": 3, 
-     
+  "alertType": "breakdown",
+  "title": "Bus Breakdown Alert",
+  "description": "Bus WP NA-1234 on Route 100 has experienced a breakdown.",
+  "affectedBus": "WP NA-1234"
 }
 ```
 Response `201`:
 ```json
 {
-  "success": true,
-  "message": "Alert sent successfully",
-  "data": {
-    "id": 15,
-    "busNumber": "NA-1234",
-    "routeId": 3,
-    "alertType": "Delay",
-    "sentAt": "2026-04-01"
-  }
+    "success": true,
+    "message": "Bus alert sent successfully",
+    "data": {
+        "recipientCount": 0,
+        "isDeleted": false,
+        "id": 33,
+        "alertType": "breakdown",
+        "affectedRoute": "Route 100",
+        "affectedBus": "WP NA-1234",
+        "title": "Bus Breakdown Alert",
+        "description": "Bus WP NA-1234 on Route 100 has experienced a breakdown.",
+        "targetAudience": "route",
+        "status": "sent",
+        "sentAt": "2026-06-10T16:19:33.889Z",
+        "createdBy": 18,
+        "updatedAt": "2026-06-10T16:19:33.889Z",
+        "createdAt": "2026-06-10T16:19:33.846Z",
+        "deliveryMeta": {
+            "targetAudience": "route",
+            "affectedRoute": "Route 100",
+            "affectedBus": "WP NA-1234",
+            "dispatchedAt": "2026-06-10T16:19:33.889Z"
+        }
+    }
 }
 ```
-### 6.5 GET /bus-alerts
-Description: Get recent own alerts sent by Bus.
-Access: Authorixation
+### 7.5 GET alerts/bus/history
+Description: Get recent alerts sent by Bus user.
+Access: Authorization
 Response `200`:
 ```json
 {
-  "success": true,
-  "data": [
-    {
-      "id": 15,
-      "alertType": "Delay",
-      "sentAt": "2026-04-01"
-    },
-    {
-      "id": 14,
-      "sentAt": "2026-04-01"
+    "success": true,
+    "message": "Success",
+    "data": {
+        "total": 18,
+        "page": 1,
+        "totalPages": 2,
+        "alerts": [
+            {
+                "id": 44,
+                "alertType": "breakdown",
+                "affectedRoute": "Route 100",
+                "affectedBus": "WP NA-1234",
+                "title": "Bus Breakdown Alert",
+                "description": "Bus WP NA-1234 on Route 100 has experienced a breakdown.",
+                "targetAudience": "route",
+                "status": "sent",
+                "scheduledAt": null,
+                "sentAt": "2026-06-10T16:33:31.000Z",
+                "recipientCount": 0,
+                "deliveryMeta": {
+                    "affectedBus": "WP NA-1234",
+                    "dispatchedAt": "2026-06-10T16:33:31.013Z",
+                    "affectedRoute": "Route 100",
+                    "targetAudience": "route"
+                },
+                "createdBy": 18,
+                "isDeleted": false,
+                "createdAt": "2026-06-10T16:33:31.000Z",
+                "updatedAt": "2026-06-10T16:33:31.000Z"
+            }
+        ]
     }
-  ]
 }
 ```
-## 7. Feeback Endpoints
+### 7.6 GET /alerts/feed
+Description: Returns public alerts + alerts for the passenger's subscribed routes
+Access: Authenticated
+Response:
+```json
+{
+    "success": true,
+    "message": "Success",
+    "data": {
+        "total": 23,
+        "page": 1,
+        "totalPages": 3,
+        "alerts": [
+            {
+                "id": 25,
+                "alertType": "breakdown",
+                "affectedRoute": "Route 100",
+                "affectedBus": "WP NA-1234",
+                "title": "Bus Breakdown Alert",
+                "description": "Bus WP NA-1234 on Route 100 has experienced a breakdown.",
+                "status": "sent",
+                "scheduledAt": null,
+                "sentAt": "2026-05-20T14:42:20.000Z",
+                "recipientCount": 7,
+                "deliveryMeta": {
+                    "affectedBus": "WP NA-1234",
+                    "dispatchedAt": "2026-05-20T14:42:20.246Z",
+                    "affectedRoute": "Route 100",
+                    "targetAudience": "public"
+                },
+                "createdBy": 2,
+                "isDeleted": false,
+                "createdAt": "2026-05-20T14:42:20.000Z",
+                "updatedAt": "2026-05-20T14:42:20.000Z"
+            }
+        ]
+    }
+}
+```
+### 7.7 GET alerts/:id
+Description: Get alerts by id(Admin/Passenger)
+Access: Authorized
+Response:
+```json
+{
+    "success": true,
+    "message": "Success",
+    "data": {
+        "id": 5,
+        "title": "Bus Breakdown",
+        "alertType": "breakdown",
+        "affectedBus": "WP NA-1234",
+        "affectedRoute": "Route 100",
+        "sentAt": "2026-05-20T08:33:11.000Z",
+        "description": "Bus WP NA-1234 on Route 100 has experienced a breakdown."
+    }
+}
+```
+## 8. Feeback Endpoints
 
-### 7.1 POST /feedback
+### 8.1 POST /feedback
 Description: Passenger can submit feedback
 Access: Authenticated
 Body: 
@@ -896,7 +1241,7 @@ Response `201`:
   }
 }
 ```
-### 7.2 GET /feedback
+### 8.2 GET /feedback
 Decsription: Show recent feedback from other passengers
 Access: Public
 Response `200`:
@@ -926,7 +1271,7 @@ Response `200`:
   }
 }
 ```
-### 7.3 GET /feedback/admin
+### 8.3 GET /feedback/admin
 Description: Get all feedback for admin view.
 Access: admin
 Response `200`:
@@ -966,7 +1311,7 @@ Response `200`:
   }
 }
 ```
-### 7.3 GET /feedback/:id
+### 8.4 GET /feedback/:id
 Description: See full feedback
 Access: Admin
 Response `200`:
@@ -984,7 +1329,7 @@ Response `200`:
   }
 }
 ```
-### 7.3 DELETE Feeback/:id
+### 8.5 DELETE Feeback/:id
 Description: Delete a feedback.
 Access: Admin
 Response `200`:
@@ -995,7 +1340,7 @@ Response `200`:
   "data": null
 }
 ```
-### 7.4 GET /feedback/my
+### 8.6 GET /feedback/my
 Description: Passenger can see own feedback.
 Access: Authenticated
 Response `200`:
@@ -1024,9 +1369,9 @@ Response `200`:
 }
 ```
 
-## 8. Complaint Endpoints
+## 9. Complaint Endpoints
 
-### 8.1 POST /complaints
+### 9.1 POST /complaints
 Decsription: Passengers can submit complaints.
 Access: Authenticated
 Body:
@@ -1057,7 +1402,7 @@ Response `201`:
   }
 }
 ```
-### 8.2 GET /complaints/my
+### 9.2 GET /complaints/my
 Description: passenger can see own complaints
 Access: Authenticated
 Response `200`:
@@ -1087,7 +1432,7 @@ Response `200`:
   }
 }
 ```
-### 8.3 GET /complaints
+### 9.3 GET /complaints
 Description: Admin get a list of complaints.
 Access: Admin
 Response `200`:
@@ -1127,7 +1472,7 @@ Response `200`:
   }
 }
 ```
-### 8.4 GET /complaints/:id
+### 9.4 GET /complaints/:id
 Description: See one item of complaint.
 Access: Admin
 Response `200`:
@@ -1150,7 +1495,7 @@ Response `200`:
   }
 }
 ```
-### 8.5 PUT /complaints/:id
+### 9.5 PUT /complaints/:id
 Description: Update complain status
 Access: Admin
 Body:
@@ -1180,9 +1525,9 @@ Response `200`:
   }
 }
 ```
-## 9. Bus Reports Endpoints
+## 10. Bus Reports Endpoints
 
-### 9.1 POST /reports
+### 10.1 POST /reports
 Description: Submit Bus reports
 Access: Authenticated
 Body:
@@ -1205,7 +1550,7 @@ Response `201`:
   }
 }
 ```
-### 9.2 GET /reports
+### 10.2 GET /reports
 Description: REceive bus reports
 Access: Admin
 Response `200`:
@@ -1231,42 +1576,132 @@ Response `200`:
 }
 ```
 
-## 10. Live Tracking Endpoints
+## 11. Live Tracking Endpoints
 
-### 10.1 GET /tracking/:routeId
-Description: Get Live Location of Buses for Passenger.(routeId is optional apply only if passneger select route.)
+### 11.1 POST /buses/live/location
+Description: Used by a bus to push its current GPS location.
 Access: Authenticated
+Body:
+```json
+{
+  "latitude": 6.9271,
+  "longitude": 79.8612,
+  "gpsOn": true,
+  "routeId": 3,
+  "routeName": "Colombo - Kandy",
+  "timestamp": "2026-06-21T10:15:00.000Z"
+}
+```
 Response `200`: 
 ```json
 {
-  "success": true,
-  "data": {
-    "routeId": 1,
-    "routeName": "Colombo–Kandy Express",
-    "buses": [
-      {
-        "busNumber": "NA-1222",
-        "currentLocation": {
-          "lat": 7.2906,
-          "lng": 80.6337
-        },
-        "lastUpdated": "2026-04-01"
-      },
-      {
-        "busNumber": "NA-1233",
-        "currentLocation": {
-          "lat": 7.2950,
-          "lng": 80.6400
-        },
-        "lastUpdated": "2026-04-01"
-      }
-    ]
-  }
+    "success": true,
+    "message": "Live location updated",
+    "data": {
+        "busId": 1,
+        "busUserId": 18,
+        "registrationNumber": "WP NA-1234",
+        "busType": "Regular",
+        "totalSeats": 45,
+        "routeId": 1,
+        "routeName": "Route 100",
+        "from": "Panadura",
+        "to": "Pettah",
+        "latitude": 6.9271,
+        "longitude": 79.8612,
+        "status": "stale",
+        "lastUpdated": "2026-06-21T10:15:00.000Z",
+        "gpsEnabled": true,
+        "distanceFromPassenger": null,
+        "staleAfterSeconds": 35
+    }
 }
 ```
-## 11. Route Finder Endpoints
+### 11.2 GET /buses/live/nearby
+Description: Returns active buses within a radius of the passenger's location.
+Access: Authenticated
+(/nearby?latitude=6.9271&longitude=79.8612&radiusKm=10&limit=20)
+Response `200`:
+```json
+{
+    "success": true,
+    "message": "Nearby buses fetched",
+    "data": {
+        "passenger": {
+            "latitude": 6.9271,
+            "longitude": 79.8612
+        },
+        "radiusKm": 10,
+        "count": 1,
+        "buses": [
+            {
+                "busId": 1,
+                "busUserId": 18,
+                "registrationNumber": "WP NA-1234",
+                "busType": "Regular",
+                "totalSeats": 45,
+                "routeId": 1,
+                "routeName": "Route 100",
+                "from": "Panadura",
+                "to": "Pettah",
+                "latitude": 6.9271,
+                "longitude": 79.8612,
+                "status": "stale",
+                "lastUpdated": "2026-06-21T10:15:00.000Z",
+                "gpsEnabled": true,
+                "distanceFromPassenger": 0,
+                "staleAfterSeconds": 35
+            }
+        ],
+        "pollingIntervalSeconds": 10
+    }
+}
+```
+### 11.3 GET /buses/live/route
+Description: Returns buses currently on a specific route, optionally sorted by distance from the passenger.
+Access: Authenticated
+(/route?routeName=Route 100)
+Response `200`:
+```json
+{
+    "success": true,
+    "message": "Route buses fetched",
+    "data": {
+        "route": {
+            "id": 1,
+            "routeName": "Route 100",
+            "from": "Panadura",
+            "to": "Pettah"
+        },
+        "passenger": null,
+        "count": 1,
+        "buses": [
+            {
+                "busId": 1,
+                "busUserId": 18,
+                "registrationNumber": "WP NA-1234",
+                "busType": "Regular",
+                "totalSeats": 45,
+                "routeId": 1,
+                "routeName": "Route 100",
+                "from": "Panadura",
+                "to": "Pettah",
+                "latitude": 6.9271,
+                "longitude": 79.8612,
+                "status": "stale",
+                "lastUpdated": "2026-06-21T10:15:00.000Z",
+                "gpsEnabled": true,
+                "distanceFromPassenger": null,
+                "staleAfterSeconds": 35
+            }
+        ],
+        "pollingIntervalSeconds": 10
+    }
+}
+```
+## 12. Route Finder Endpoints
 
-### 11.1 GET /route-finder
+### 12.1 GET /route-finder
 Description: Find routes from start to end points.
 Access: Authenticated
 Response `200`:
@@ -1288,9 +1723,9 @@ Response `200`:
 }
 ```
 
-## 12. Lost & Found Endpoints
+## 13. Lost & Found Endpoints
 
-### 12.1 POST /lost-items
+### 13.1 POST /lost-items
 Description: Passenger can post a lost item post
 Access: Authorization
 Body:
@@ -1319,7 +1754,7 @@ Response `201`:
 }
 ```
 
-### 12.2 POST /found-items
+### 13.2 POST /found-items
 Description: Passengers can post found items.
 Access: Authorization
 Body:
@@ -1347,7 +1782,7 @@ Response `201`:
 }
 ```
 
-### 12.3 GET /lost-items
+### 13.3 GET /lost-items
 Description: Get list of lost items.
 Access: Public
 Response `200`:
@@ -1377,7 +1812,7 @@ Response `200`:
 }
 ```
 
-### 12.4 GET /found-items
+### 13.4 GET /found-items
 Description: Get a list of found items
 Access: Public
 Response `200`:
@@ -1406,7 +1841,7 @@ Response `200`:
   ]
 }
 ```
-### 12.5 GET /found-items/mine
+### 13.5 GET /found-items/mine
 Description: Get a list of found items submitted by user
 Access: Authorized
 Response `200`:
@@ -1427,7 +1862,7 @@ Response `200`:
 }
 ```
 
-### 12.6 GET /lost-items/mine
+### 13.6 GET /lost-items/mine
 Description: Get a list of lost items submitted by user.
 Access: Authorization
 Response `200`:
@@ -1448,7 +1883,7 @@ Response `200`:
 }
 ```
 
-### 12.7 PATCH /lost-items/:id
+### 13.7 PATCH /lost-items/:id
 Description: User can edit status of their lost item submitions.
 Access: Public
 Body:
@@ -1475,7 +1910,7 @@ Response:
 }
 ```
 
-### 12.8 PATCH /found-items/:id/status
+### 13.8 PATCH /found-items/:id/status
 Description: ser can edit status of their found item submitions.
 Access: Authorization
 Body:

@@ -21,30 +21,17 @@ const User = sequelize.define(
     email: {
       type: DataTypes.STRING(255),
       allowNull: false,
-      unique: true,
+      unique: "users_email_unique",
       validate: { isEmail: true },
     },
     phone: {
       type: DataTypes.STRING(20),
       allowNull: true,
     },
-    dob: {
-      type: DataTypes.DATEONLY,
+    favoriteRoutes: {
+      type: DataTypes.JSON,
       allowNull: true,
-    },
-    gender: {
-      type: DataTypes.ENUM("male", "female", "other"),
-      allowNull: true,
-    },
-    nic: {
-      type: DataTypes.STRING(20),
-      allowNull: true,
-      unique: true,
-    },
-    userName: {
-      type: DataTypes.STRING(50),
-      allowNull: false,
-      unique: true,
+      defaultValue: [],
     },
     password: {
       type: DataTypes.STRING(255),

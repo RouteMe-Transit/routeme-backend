@@ -1,0 +1,101 @@
+const { validationResult } = require("express-validator");
+const alertService = require("../services/alert.service");
+const ApiResponse = require("../utils/ApiResponse");
+const ApiError = require("../utils/ApiError");
+
+const create = async (req, res, next) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) throw new ApiError(422, "Validation failed", errors.array());
+
+    const alert = await alertService.createAlert(req.body, req.user.id);
+    ApiResponse.created(res, alert, "Alert created successfully");
+  } catch (err) {
+    next(err);
+  }
+};
+
+const sendBusAlert = async (req, res, next) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) throw new ApiError(422, "Validation failed", errors.array());
+
+    const alert = await alertService.createBusRouteAlert({
+      alertType: req.body.alertType,
+      busUser: req.user,
+      title: req.body.title,
+      description: req.body.description || req.body.content,
+      affectedBus: req.body.affectedBus,
+      affectedRoute: req.body.affectedRoute,
+      targetAudience: req.body.targetAudience,
+      targetRoute: req.body.targetRoute,
+    });
+
+    ApiResponse.created(res, alert, "Bus alert sent successfully");
+  } catch (err) {
+    next(err);
+  }
+};
+
+const getById = async (req, res, next) => {
+  try {
+    const alert = await alertService.getAlertById(req.params.id, req.user);
+    ApiResponse.success(res, alert);
+  } catch (err) {
+    next(err);
+  }
+};
+
+const getHistory = async (req, res, next) => {
+  try {
+    const { page, limit, status, createdBy, creatorRole, alertType, affectedRoute, search } = req.query;
+    // If a search term is provided, search across all alerts (not only admin-created)
+    const result = search
+      ? await alertService.getAlertHistoryAllForAdmin({ page, limit, status, createdBy, creatorRole, alertType, affectedRoute, search })
+      : await alertService.getAlertHistoryByAdmin({ page, limit, status, createdBy, creatorRole });
+    ApiResponse.success(res, result);
+  } catch (err) {
+    next(err);
+  }
+};
+
+const getAllHistory = async (req, res, next) => {
+  try {
+    const { page, limit, status, createdBy, creatorRole, alertType, affectedRoute, search } = req.query;
+    const result = await alertService.getAlertHistoryAllForAdmin({ page, limit, status, createdBy, creatorRole, alertType, affectedRoute, search });
+    ApiResponse.success(res, result);
+  } catch (err) {
+    next(err);
+  }
+};
+
+const getPassengerFeed = async (req, res, next) => {
+  try {
+    const { page, limit } = req.query;
+    const result = await alertService.getPassengerVisibleAlerts({
+      passenger: req.user,
+      page,
+      limit,
+    });
+
+    ApiResponse.success(res, result);
+  } catch (err) {
+    next(err);
+  }
+};
+
+const getBusHistory = async (req, res, next) => {
+  try {
+    const { page, limit } = req.query;
+    const result = await alertService.getAlertHistoryByBus({
+      page,
+      limit,
+      busId: req.user.id,
+    });
+    ApiResponse.success(res, result);
+  } catch (err) {
+    next(err);
+  }
+};
+
+module.exports = { create, sendBusAlert, getById, getHistory, getAllHistory, getBusHistory, getPassengerFeed };

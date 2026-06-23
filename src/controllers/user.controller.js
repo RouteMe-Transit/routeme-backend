@@ -27,7 +27,7 @@ const create = async (req, res, next) => {
     const errors = validationResult(req);
     if (!errors.isEmpty()) throw new ApiError(422, "Validation failed", errors.array());
 
-    const user = await userService.createUser(req.body);
+    const user = await userService.createUser(req.body, { createdByAdmin: true });
     ApiResponse.created(res, user);
   } catch (err) {
     next(err);
@@ -46,6 +46,37 @@ const update = async (req, res, next) => {
   }
 };
 
+const getMyFavoriteRoutes = async (req, res, next) => {
+  try {
+    const { search } = req.query;
+    const result = await userService.getPassengerFavoriteRoutes(req.user.id, { search });
+    ApiResponse.success(res, result);
+  } catch (err) {
+    next(err);
+  }
+};
+
+const addMyFavoriteRoute = async (req, res, next) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) throw new ApiError(422, "Validation failed", errors.array());
+
+    const user = await userService.addPassengerFavoriteRoute(req.user.id, req.body.routeId);
+    ApiResponse.success(res, user, "Route added to favorites successfully");
+  } catch (err) {
+    next(err);
+  }
+};
+
+const removeMyFavoriteRoute = async (req, res, next) => {
+  try {
+    const user = await userService.removePassengerFavoriteRoute(req.user.id, req.params.routeId);
+    ApiResponse.success(res, user, "Route removed from favorites successfully");
+  } catch (err) {
+    next(err);
+  }
+};
+
 const remove = async (req, res, next) => {
   try {
     await userService.deleteUser(req.params.id);
@@ -55,4 +86,13 @@ const remove = async (req, res, next) => {
   }
 };
 
-module.exports = { getAll, getById, create, update, remove };
+module.exports = {
+  getAll,
+  getById,
+  create,
+  update,
+  getMyFavoriteRoutes,
+  addMyFavoriteRoute,
+  removeMyFavoriteRoute,
+  remove,
+};
