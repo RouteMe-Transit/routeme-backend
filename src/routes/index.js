@@ -15,6 +15,7 @@ const liveTrackingRoutes = require("./live-tracking.routes");
 // your feature
 const complaintRoutes = require("./complaint.routes");
 const feedbackRoutes  = require("./feedback.routes");
+const reportRoutes    = require("./report.routes");
 
 
 const router = Router();
@@ -33,9 +34,9 @@ router.use("/routes",     routeRoutes);
 router.use("/stops",      stopRoutes);
 router.use("/trips",      tripRoutes);
 
-// ── Your Feature ────────────────────────────────────────────
 router.use("/complaints", complaintRoutes);
 router.use("/feedbacks",  feedbackRoutes);
+router.use("/reports", reportRoutes);
 
 // ── Test Route ───────────────────────────────────────────────
 router.get("/test", (req, res) =>
