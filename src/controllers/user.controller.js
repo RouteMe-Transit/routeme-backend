@@ -5,8 +5,8 @@ const ApiError = require("../utils/ApiError");
 
 const getAll = async (req, res, next) => {
   try {
-    const { page, limit, role } = req.query;
-    const result = await userService.getAllUsers({ page, limit, role });
+    const { page, limit, role, search, status, id } = req.query;  // ← add id
+    const result = await userService.getAllUsers({ page, limit, role, search, status, id });  // ← pass id
     ApiResponse.success(res, result);
   } catch (err) {
     next(err);
@@ -51,8 +51,10 @@ const updateMySubscriptions = async (req, res, next) => {
     const errors = validationResult(req);
     if (!errors.isEmpty()) throw new ApiError(422, "Validation failed", errors.array());
 
-    const user = await userService.updatePassengerSubscriptions(req.user.id, req.body.subscribedRoutes);
-
+    const user = await userService.updatePassengerSubscriptions(
+      req.user.id,
+      req.body.subscribedRoutes
+    );
     ApiResponse.success(res, user, "Subscribed routes updated successfully");
   } catch (err) {
     next(err);

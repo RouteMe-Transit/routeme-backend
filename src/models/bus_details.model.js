@@ -56,10 +56,10 @@ const BusDetails = sequelize.define(
       allowNull: false,
     },
     ownerEmail: {
-      type: DataTypes.STRING(255), //email and phone numbers are not unique for bus details, as multiple buses can have the same owner
+      type: DataTypes.STRING(255),
       allowNull: false,
     },
-    ownerPhone: { 
+    ownerPhone: {
       type: DataTypes.STRING(20),
       allowNull: false,
     },
@@ -99,6 +99,15 @@ const BusDetails = sequelize.define(
       allowNull: false,
       defaultValue: true,
     },
+    // Explicit 3-way status — kept in sync with isActive:
+    //   Active      → isActive = true
+    //   Maintenance → isActive = false
+    //   Breakdown   → isActive = false
+    status: {
+      type: DataTypes.ENUM("Active", "Maintenance", "Breakdown"),
+      allowNull: false,
+      defaultValue: "Active",
+    },
   },
   {
     tableName: "bus_details",
@@ -107,7 +116,12 @@ const BusDetails = sequelize.define(
       { fields: ["routeId"] },
       { fields: ["liveStatus"] },
       { fields: ["lastSeenAt"] },
-      { fields: ["registrationNumber"], unique: true, name: "bus_details_registration_number_unique" },
+      { fields: ["status"] },
+      {
+        fields: ["registrationNumber"],
+        unique: true,
+        name: "bus_details_registration_number_unique",
+      },
     ],
   }
 );

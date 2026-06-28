@@ -3,6 +3,11 @@ const stopService = require("../services/stop.service");
 const ApiResponse = require("../utils/ApiResponse");
 const ApiError = require("../utils/ApiError");
 
+const getStats = async (req, res, next) => {
+  try { ApiResponse.success(res, await stopService.getStats()); }
+  catch (err) { next(err); }
+};
+
 const getAll = async (req, res, next) => {
   try { ApiResponse.success(res, await stopService.getAll(req.query)); }
   catch (err) { next(err); }
@@ -31,6 +36,4 @@ const toggleActive = async (req, res, next) => {
   catch (err) { next(err); }
 };
 
-// remove handler deleted — stops use suspend (toggleActive) instead of delete
-
-module.exports = { getAll, getById, create, update, toggleActive };
+module.exports = { getStats, getAll, getById, create, update, toggleActive };

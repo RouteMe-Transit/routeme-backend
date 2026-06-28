@@ -5,12 +5,14 @@ const { stopValidation } = require("../middlewares/validate.middleware");
 
 const router = Router();
 
-router.get("/",    c.getAll);
-router.get("/:id", c.getById);
+// /stats MUST come before /:id or Express will treat "stats" as an id
+router.get("/stats", c.getStats);
+router.get("/",      c.getAll);
+router.get("/:id",   c.getById);
 
 router.use(authenticate, authorize("admin"));
 router.post("/",            stopValidation.create, c.create);
 router.put("/:id",          stopValidation.update, c.update);
-router.patch("/:id/toggle", c.toggleActive);  // suspend / unsuspend
+router.patch("/:id/toggle", c.toggleActive);
 
 module.exports = router;

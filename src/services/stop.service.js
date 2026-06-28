@@ -1,24 +1,43 @@
+const { Op } = require("sequelize");
 const { Stop } = require("../models");
 const ApiError = require("../utils/ApiError");
 
-const getAll = async ({ page = 1, limit = 50, search, activeOnly } = {}) => {
-  const { Op } = require("sequelize");
-  const where = {};
-  if (activeOnly === "true") where.isActive = true;
-  if (search) where.stopName = { [Op.like]: `%${search}%` };
+const getStats = async () => {
+  const total    = await Stop.count();
+  const active   = await Stop.count({ where: { isActive: true  } });
+  const inactive = await Stop.count({ where: { isActive: false } });
+  return { total, active, inactive };
+};
 
-  const offset = (parseInt(page) - 1) * parseInt(limit);
+const getAll = async ({ page = 1, limit = 10, search, id, activeOnly } = {}) => {
+  const where = {};
+
+  if (activeOnly === "true")  where.isActive = true;
+  if (activeOnly === "false") where.isActive = false;
+
+  // ── ID lookup takes priority over text search ──────────────────────────────
+  if (id) {
+    where.id = parseInt(id, 10);
+  } else if (search) {
+    where.stopName = { [Op.like]: `%${search}%` };
+  }
+
+  const parsedPage  = Math.max(1, parseInt(page));
+  const parsedLimit = Math.min(100, Math.max(1, parseInt(limit)));
+  const offset      = (parsedPage - 1) * parsedLimit;
+
   const { count, rows } = await Stop.findAndCountAll({
     where,
-    limit: parseInt(limit),
+    limit:  parsedLimit,
     offset,
-    order: [["createdAt", "ASC"]],
+    order:  [["createdAt", "DESC"]],   // ← was ASC, now newest first
   });
+
   return {
-    total: count,
-    page: parseInt(page),
-    totalPages: Math.ceil(count / limit),
-    stops: rows,
+    total:      count,
+    page:       parsedPage,
+    totalPages: Math.ceil(count / parsedLimit),
+    stops:      rows,
   };
 };
 
@@ -53,4 +72,4 @@ const toggleActive = async (id) => {
   return stop;
 };
 
-module.exports = { getAll, getById, create, update, toggleActive };
+module.exports = { getStats, getAll, getById, create, update, toggleActive };

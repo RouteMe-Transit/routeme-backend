@@ -1,3 +1,4 @@
+const { Op } = require("sequelize");
 const { User } = require("../models");
 const ApiError = require("../utils/ApiError");
 
@@ -43,10 +44,48 @@ const normalizeSubscribedRoutes = (data) =>
 
 // ── CRUD ──────────────────────────────────────────────────────────────────────
 
-const getAllUsers = async ({ page = 1, limit = 10, role } = {}) => {
+const getAllUsers = async ({ page = 1, limit = 10, role, search, status, id } = {}) => {
   const offset = (page - 1) * limit;
   const where  = {};
+
+  // role filter
   if (role) where.role = role;
+
+  // status filter — "active" → isActive: true, "inactive" → isActive: false
+  if (status === "active")   where.isActive = true;
+  if (status === "inactive") where.isActive = false;
+
+  // id filter — exact match, takes priority over text search
+  if (id) {
+    where.id = parseInt(id, 10);
+  } else if (search && search.trim() !== "") {
+    // search filter — matches firstName, lastName, or email
+    const term = `%${search.trim()}%`;
+    where[Op.or] = [
+      { firstName: { [Op.like]: term } },
+      { lastName:  { [Op.like]: term } },
+      { email:     { [Op.like]: term } },
+    ];
+  }
+
+  // role filter
+  if (role) where.role = role;
+
+  // status filter — "active" → isActive: true, "inactive" → isActive: false
+  if (status === "active")   where.isActive = true;
+  if (status === "inactive") where.isActive = false;
+
+  // search filter — matches firstName, lastName, or email
+  // Op.like is used instead of Op.iLike because MySQL does not support iLike;
+  // MySQL LIKE is case-insensitive by default on utf8_general_ci / utf8mb4_general_ci collations
+  if (search && search.trim() !== "") {
+    const term = `%${search.trim()}%`;
+    where[Op.or] = [
+      { firstName: { [Op.like]: term } },
+      { lastName:  { [Op.like]: term } },
+      { email:     { [Op.like]: term } },
+    ];
+  }
 
   const { count, rows } = await User.findAndCountAll({
     where,
