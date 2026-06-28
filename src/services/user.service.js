@@ -111,11 +111,40 @@ const resolveRoutesFromInputs = async (routes = [], { strict = true } = {}) => {
  
 // ── CRUD ──────────────────────────────────────────────────────────────────────
  
-const getAllUsers = async ({ page = 1, limit = 10, role } = {}) => {
+const getAllUsers = async ({ page = 1, limit = 10, role, search, id, status } = {}) => {
   const offset = (page - 1) * limit;
   const where  = {};
+
+  // Role filter
   if (role) where.role = role;
- 
+
+  // Status filter
+  if (status === "active")   where.isActive = true;
+  if (status === "inactive") where.isActive = false;
+
+  // ID search takes priority over text search
+  if (id) {
+    const parsed = parseInt(id, 10);
+    if (!isNaN(parsed)) where.id = parsed;
+  } else if (search) {
+    // Split search into parts to match across firstName + lastName
+    const parts = search.trim().split(/\s+/);
+    if (parts.length >= 2) {
+      // e.g. "Hewa Wasam" → match firstName LIKE "Hewa" AND lastName LIKE "Wasam"
+      where[Op.and] = [
+        { firstName: { [Op.like]: `%${parts[0]}%` } },
+        { lastName:  { [Op.like]: `%${parts.slice(1).join(" ")}%` } },
+      ];
+    } else {
+      // Single word → search across firstName, lastName, email
+      where[Op.or] = [
+        { firstName: { [Op.like]: `%${search}%` } },
+        { lastName:  { [Op.like]: `%${search}%` } },
+        { email:     { [Op.like]: `%${search}%` } },
+      ];
+    }
+  }
+
   const { count, rows } = await User.findAndCountAll({
     where,
     limit:  parseInt(limit),
@@ -285,4 +314,3 @@ module.exports = {
   removePassengerFavoriteRoute,
   deleteUser,
 };
- 

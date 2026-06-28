@@ -2,31 +2,41 @@ const { Route, RouteStop, Stop } = require("../models");
 const ApiError = require("../utils/ApiError");
 
 // ─── getAll ───────────────────────────────────────────────────────────────────
-const getAll = async ({ page = 1, limit = 20, search } = {}) => {
+const getAll = async ({ page = 1, limit = 20, search, id, status } = {}) => {
   const { Op } = require("sequelize");
   const where = {};
-  if (search) {
+
+  // Status filter
+  if (status === "active")   where.isActive = true;
+  if (status === "inactive") where.isActive = false;
+
+  // ID search takes priority over text search
+  if (id) {
+    const parsed = parseInt(id, 10);
+    if (!isNaN(parsed)) where.id = parsed;
+  } else if (search) {
     where[Op.or] = [
       { routeName: { [Op.like]: `%${search}%` } },
       { from:      { [Op.like]: `%${search}%` } },
       { to:        { [Op.like]: `%${search}%` } },
     ];
   }
+
   const offset = (parseInt(page) - 1) * parseInt(limit);
   const { count, rows } = await Route.findAndCountAll({
     where,
-    limit: parseInt(limit),
+    limit:  parseInt(limit),
     offset,
-    order: [["createdAt", "DESC"]],
+    order:  [["createdAt", "DESC"]],
   });
 
-  // Attach stopList (derived from route_stops) to every route for the table UI
+  // Attach stopList to every route for the table UI
   const routesWithStops = await Promise.all(
     rows.map(async (route) => {
       const routeStops = await RouteStop.findAll({
-        where: { routeId: route.id },
+        where:   { routeId: route.id },
         include: [{ model: Stop, as: "stop", attributes: ["id", "stopName"] }],
-        order: [["stopSequence", "ASC"]],
+        order:   [["stopSequence", "ASC"]],
       });
       const stopList = routeStops.map((rs, idx) => ({
         id:            String(idx + 1).padStart(2, "0"),
@@ -59,7 +69,6 @@ const getById = async (id) => {
 
   const result = route.toJSON();
 
-  // Canonical stop list derived from route_stops table
   result.stopList = routeStops.map((rs, idx) => ({
     id:            String(idx + 1).padStart(2, "0"),
     stopId:        rs.stopId,
@@ -67,7 +76,6 @@ const getById = async (id) => {
     timeFromStart: rs.time ?? "00.00",
   }));
 
-  // Also expose raw routeStops for callers that need full stop detail
   result.routeStops = routeStops.map((rs) => ({
     id:           rs.id,
     stopId:       rs.stopId,
@@ -80,11 +88,6 @@ const getById = async (id) => {
 };
 
 // ─── create ───────────────────────────────────────────────────────────────────
-/**
- * Expects stopList items in the shape:
- *   { stopId: number, stopSequence: number, time: string }
- * The frontend maps its StopItem[] to this before POSTing.
- */
 const create = async (data) => {
   const route = await Route.create({
     routeName: data.routeName,
@@ -125,7 +128,6 @@ const update = async (id, data) => {
     isActive:  data.isActive  !== undefined ? data.isActive : route.isActive,
   });
 
-  // Replace route_stops only when a new stopList is provided
   if (Array.isArray(data.stopList)) {
     await RouteStop.destroy({ where: { routeId: route.id } });
     for (const item of data.stopList) {
@@ -145,7 +147,6 @@ const update = async (id, data) => {
 
 // ─── suspend (toggle isActive) ────────────────────────────────────────────────
 const suspend = async (id) => {
-  // Must use a Sequelize model instance, NOT the plain object from getById()
   const route = await Route.findByPk(id);
   if (!route) throw new ApiError(404, "Route not found");
   await route.update({ isActive: !route.isActive });
@@ -156,7 +157,6 @@ const suspend = async (id) => {
 const remove = async (id) => {
   const route = await Route.findByPk(id);
   if (!route) throw new ApiError(404, "Route not found");
-  // route_stops rows are cascade-deleted via the FK onDelete: CASCADE
   await route.destroy();
 };
 
