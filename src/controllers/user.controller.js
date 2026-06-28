@@ -5,8 +5,8 @@ const ApiError = require("../utils/ApiError");
 
 const getAll = async (req, res, next) => {
   try {
-    const { page, limit, role } = req.query;
-    const result = await userService.getAllUsers({ page, limit, role });
+    const { page, limit, role, search, id, status } = req.query;
+    const result = await userService.getAllUsers({ page, limit, role, search, id, status });
     ApiResponse.success(res, result);
   } catch (err) {
     next(err);

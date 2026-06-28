@@ -5,7 +5,9 @@ const ApiError = require("../utils/ApiError");
 
 const getAll = async (req, res, next) => {
   try {
-    const result = await busService.getAll(req.query);
+    // Destructure explicitly so we forward search, userId, status, page, limit
+    const { page, limit, search, userId, status } = req.query;
+    const result = await busService.getAll({ page, limit, search, userId, status });
     ApiResponse.success(res, result);
   } catch (err) { next(err); }
 };
@@ -33,7 +35,6 @@ const update = async (req, res, next) => {
   } catch (err) { next(err); }
 };
 
-// SUSPEND / UNSUSPEND — replaces hard delete
 const toggleActive = async (req, res, next) => {
   try {
     const bus = await busService.toggleActive(req.params.id);

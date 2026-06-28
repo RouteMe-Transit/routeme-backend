@@ -4,8 +4,16 @@ const ApiResponse = require("../utils/ApiResponse");
 const ApiError = require("../utils/ApiError");
 
 const getAll = async (req, res, next) => {
-  try { ApiResponse.success(res, await stopService.getAll(req.query)); }
-  catch (err) { next(err); }
+  try {
+    const { page, limit, search, id, activeOnly } = req.query;
+    ApiResponse.success(res, await stopService.getAll({ page, limit, search, id, activeOnly }));
+  } catch (err) { next(err); }
+};
+
+const getStats = async (req, res, next) => {
+  try {
+    ApiResponse.success(res, await stopService.getStats());
+  } catch (err) { next(err); }
 };
 
 const getById = async (req, res, next) => {
@@ -31,6 +39,4 @@ const toggleActive = async (req, res, next) => {
   catch (err) { next(err); }
 };
 
-// remove handler deleted — stops use suspend (toggleActive) instead of delete
-
-module.exports = { getAll, getById, create, update, toggleActive };
+module.exports = { getAll, getStats, getById, create, update, toggleActive };
