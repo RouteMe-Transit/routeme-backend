@@ -28,7 +28,7 @@ const User = sequelize.define(
       type: DataTypes.STRING(20),
       allowNull: true,
     },
-    subscribedRoutes: {
+    favoriteRoutes: {
       type: DataTypes.JSON,
       allowNull: true,
       defaultValue: [],

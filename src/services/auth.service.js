@@ -18,7 +18,7 @@ const login = async ({
   // =========================
   // BUS LOGIN
   // =========================
-  
+
   if (registrationNumber) {
     const bus = await BusDetails.findOne({
       where: { registrationNumber },
