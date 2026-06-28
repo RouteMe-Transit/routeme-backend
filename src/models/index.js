@@ -11,6 +11,8 @@ const RouteStop  = require("./route_stops.model");
 const Trip       = require("./trip.model");
 const Complaint  = require("./complaint.model");
 const Feedback   = require("./feedback.model");
+const OTP        = require("./otpmodel");
+const Report     = require("./report.model");
 
 // ── User ↔ BusDetails (one-to-one via userId)
 User.hasOne(BusDetails,    { foreignKey: "userId", as: "busDetails" });
@@ -19,6 +21,10 @@ BusDetails.belongsTo(User, { foreignKey: "userId", as: "user" });
 // ── User ↔ Complaint (one-to-many)
 User.hasMany(Complaint, { foreignKey: "userId", as: "complaints" });
 Complaint.belongsTo(User, { foreignKey: "userId", as: "user" });
+
+// ── User ↔ Report (one-to-many)
+User.hasMany(Report, { foreignKey: "userId", as: "reports" });
+Report.belongsTo(User, { foreignKey: "userId", as: "user" });
 
 // ── User ↔ Feedback (one-to-many)
 User.hasMany(Feedback, { foreignKey: "userId", as: "feedbacks" });
@@ -69,4 +75,6 @@ module.exports = {
   Trip,
   Complaint,
   Feedback,
+  Report,
+  OTP,
 };
