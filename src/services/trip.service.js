@@ -58,7 +58,7 @@ const getAll = async ({ page = 1, limit = 20, search, id, status, direction, rou
     include:  includeRelations,   // always plain include — no required:true
     limit:    parseInt(limit),
     offset,
-    order:    [["departureTime", "ASC"]],
+    order:    [["id", "DESC"]],   // newest trips first (TR000N → TR0001)
     subQuery: false,              // required for $association.col$ filtering
   });
 
@@ -126,12 +126,13 @@ const remove = async (id) => {
   return { message: "Trip deleted successfully" };
 };
 
+// ── Stats ──────────────────────────────────────────────────────────────────
+// Simple counts only: total trips and cancelled trips.
 const getStats = async () => {
   const total     = await Trip.count();
-  const active    = await Trip.count({ where: { status: "active"    } });
   const cancelled = await Trip.count({ where: { status: "cancelled" } });
 
-  return { total, active, cancelled };
+  return { total, cancelled };
 };
 
 module.exports = { getAll, getById, create, update, toggleActive, remove, getStats };

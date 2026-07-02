@@ -21,7 +21,7 @@ const getAll = async ({ page = 1, limit = 50, search, id, activeOnly } = {}) => 
     where,
     limit:  parseInt(limit),
     offset,
-    order:  [["createdAt", "ASC"]],
+    order:  [["createdAt", "DESC"]],
   });
 
   return {
