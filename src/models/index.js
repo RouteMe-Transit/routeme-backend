@@ -5,6 +5,7 @@ const News       = require("./news.model");
 const Alert      = require("./alerts.model");
 const BusDetails = require("./bus_details.model");
 const BusLiveLocation = require("./bus_live_location.model");
+const FavoriteRoute = require("./favorite-route.model");
 const Route      = require("./route.model");
 const Stop       = require("./stop.model");
 const RouteStop  = require("./route_stops.model");
@@ -29,6 +30,14 @@ Report.belongsTo(User, { foreignKey: "userId", as: "user" });
 // ── User ↔ Feedback (one-to-many)
 User.hasMany(Feedback, { foreignKey: "userId", as: "feedbacks" });
 Feedback.belongsTo(User, { foreignKey: "userId", as: "user" });
+
+// ── User ↔ FavoriteRoute (one-to-many)
+User.hasMany(FavoriteRoute, { foreignKey: "userId", as: "favoriteRouteLinks" });
+FavoriteRoute.belongsTo(User, { foreignKey: "userId", as: "user" });
+
+// ── Route ↔ FavoriteRoute (one-to-many)
+Route.hasMany(FavoriteRoute, { foreignKey: "routeId", as: "favoriteRouteLinks" });
+FavoriteRoute.belongsTo(Route, { foreignKey: "routeId", as: "route" });
 
 // ── Route ↔ BusDetails (one-to-many via routeId)
 Route.hasMany(BusDetails,   { foreignKey: "routeId", as: "buses" });
@@ -58,6 +67,39 @@ Trip.belongsTo(BusDetails, { foreignKey: "busId", as: "bus" });
 // ── Sync DB
 const syncDatabase = async () => {
   await sequelize.sync({ alter: true });
+
+  const legacyUsers = await User.findAll({
+    where: { role: "passenger" },
+    attributes: ["id", "favoriteRoutes"],
+  });
+
+  const legacyRouteRows = [];
+  const seen = new Set();
+  const now = new Date();
+
+  for (const user of legacyUsers) {
+    const routeIds = Array.isArray(user.favoriteRoutes) ? user.favoriteRoutes : [];
+
+    for (const routeIdValue of routeIds) {
+      const routeId = Number(routeIdValue);
+      if (!Number.isInteger(routeId) || routeId <= 0) continue;
+
+      const key = `${user.id}:${routeId}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+
+      legacyRouteRows.push({
+        userId: user.id,
+        routeId,
+        addedAt: now,
+      });
+    }
+  }
+
+  if (legacyRouteRows.length) {
+    await FavoriteRoute.bulkCreate(legacyRouteRows, { ignoreDuplicates: true });
+  }
+
   console.log("✅ Database synced successfully");
 };
 
@@ -69,6 +111,7 @@ module.exports = {
   Alert,
   BusDetails,
   BusLiveLocation,
+  FavoriteRoute,
   Route,
   Stop,
   RouteStop,
