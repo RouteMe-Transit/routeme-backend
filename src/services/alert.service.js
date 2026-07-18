@@ -1,5 +1,5 @@
 const { Op } = require("sequelize");
-const { Alert, User, BusDetails, Route } = require("../models");
+const { Alert, User, BusDetails, Route, FavoriteRoute } = require("../models");
 const ApiError = require("../utils/ApiError");
 
 let schedulerTimer = null;
@@ -88,27 +88,48 @@ const normalizeBusAlertType = (alertType) => {
 
 const normalizeRouteKey = (route) => `${route || ""}`.trim().toLowerCase();
 
-const getFavoriteRouteNames = async (user) => {
-  const favoriteRouteIds = Array.isArray(user.favoriteRoutes) ? user.favoriteRoutes : [];
-  if (!favoriteRouteIds.length) return [];
+const getAlertTimestamp = (alert) => new Date(alert?.sentAt || alert?.createdAt || Date.now());
 
-  const routes = await Route.findAll({
-    where: { id: { [Op.in]: favoriteRouteIds } },
-    attributes: ["routeName"],
+const getPassengerFavoriteRoutes = async (passengerId) => {
+  const favoriteRoutes = await FavoriteRoute.findAll({
+    where: { userId: passengerId },
+    include: [{
+      model: Route,
+      as: "route",
+      attributes: ["id", "routeName", "from", "to"],
+    }],
+    order: [["addedAt", "DESC"]],
   });
 
-  return routes.map((r) => normalizeRouteKey(r.routeName));
+  return favoriteRoutes.map((favoriteRoute) => ({
+    routeId: favoriteRoute.routeId,
+    routeName: favoriteRoute.route?.routeName || null,
+    addedAt: favoriteRoute.addedAt,
+  }));
 };
 
-const canPassengerViewAlert = async (passenger, alert) => {
+const isRouteAlertVisibleForPassenger = (alert, favoriteRoutes = []) => {
+  const alertRouteKey = normalizeRouteKey(alert?.affectedRoute);
+  if (!alertRouteKey) return false;
+
+  const alertTimestamp = getAlertTimestamp(alert).getTime();
+
+  return favoriteRoutes.some((favoriteRoute) => {
+    if (normalizeRouteKey(favoriteRoute.routeName) !== alertRouteKey) return false;
+    const addedAt = new Date(favoriteRoute.addedAt).getTime();
+    return Number.isFinite(addedAt) && alertTimestamp >= addedAt;
+  });
+};
+
+const canPassengerViewAlert = async (passenger, alert, favoriteRoutes = null) => {
   if (!passenger || passenger.role !== "passenger" || !alert) return false;
   if (alert.isDeleted || alert.status !== "sent") return false;
   if (alert.targetAudience === "public") return true;
 
-  const favoriteRouteNames = await getFavoriteRouteNames(passenger);
-  if (!favoriteRouteNames.length) return false;
+  const routes = favoriteRoutes || await getPassengerFavoriteRoutes(passenger.id);
+  if (!routes.length) return false;
 
-  return favoriteRouteNames.includes(normalizeRouteKey(alert.affectedRoute));
+  return isRouteAlertVisibleForPassenger(alert, routes);
 };
 
 const getAlertById = async (id, viewer = null) => {
@@ -143,25 +164,29 @@ const getPassengerVisibleAlerts = async ({ passenger, page = 1, limit = 10 } = {
   const parsedPage = parseInt(page || 1, 10);
   const parsedLimit = parseInt(limit || 10, 10);
 
-  const favoriteRouteNames = await getFavoriteRouteNames(passenger);
+  const favoriteRoutes = await getPassengerFavoriteRoutes(passenger.id);
+
+  const routeConditions = favoriteRoutes.map((favoriteRoute) => ({
+    targetAudience: "route",
+    affectedRoute: favoriteRoute.routeName,
+    sentAt: { [Op.gte]: favoriteRoute.addedAt },
+  }));
 
   const alerts = await Alert.findAll({
     where: {
       isDeleted: false,
       status: "sent",
-      targetAudience: { [Op.in]: ["public", "route"] },
+      [Op.or]: [
+        { targetAudience: "public" },
+        ...routeConditions,
+      ],
     },
-    order: [["createdAt", "DESC"]],
+    order: [["sentAt", "DESC"], ["createdAt", "DESC"]],
   });
 
-  const visibleAlerts = alerts.filter((alert) => {
-    if (alert.targetAudience === "public") return true;
-    return favoriteRouteNames.includes(normalizeRouteKey(alert.affectedRoute));
-  });
-
-  const total = visibleAlerts.length;
+  const total = alerts.length;
   const offset = (parsedPage - 1) * parsedLimit;
-  const paginatedAlerts = visibleAlerts.slice(offset, offset + parsedLimit);
+  const paginatedAlerts = alerts.slice(offset, offset + parsedLimit);
 
   return {
     total,
@@ -178,24 +203,33 @@ const getRecipientCount = async (alert) => {
     return User.count({ where: baseWhere });
   }
 
-  const passengers = await User.findAll({
-    where: baseWhere,
-    attributes: ["id", "favoriteRoutes"],
-  });
-
+  const dispatchedAt = new Date(alert.sentAt || Date.now());
   const routeKey = normalizeRouteKey(alert.affectedRoute);
 
-  // resolve all favorite route IDs to names in bulk
-  const allFavIds = [...new Set(passengers.flatMap((p) => Array.isArray(p.favoriteRoutes) ? p.favoriteRoutes : []))];
-  const routes = allFavIds.length
-    ? await Route.findAll({ where: { id: { [Op.in]: allFavIds } }, attributes: ["id", "routeName"] })
-    : [];
-  const idToName = new Map(routes.map((r) => [r.id, normalizeRouteKey(r.routeName)]));
+  const routes = await Route.findAll({
+    attributes: ["id", "routeName"],
+  });
 
-  return passengers.filter((user) => {
-    const ids = Array.isArray(user.favoriteRoutes) ? user.favoriteRoutes : [];
-    return ids.some((id) => idToName.get(id) === routeKey);
-  }).length;
+  const matchingRouteIds = routes
+    .filter((route) => normalizeRouteKey(route.routeName) === routeKey)
+    .map((route) => route.id);
+
+  if (!matchingRouteIds.length) return 0;
+
+  return FavoriteRoute.count({
+    where: {
+      routeId: { [Op.in]: matchingRouteIds },
+      addedAt: { [Op.lte]: dispatchedAt },
+    },
+    include: [{
+      model: User,
+      as: "user",
+      attributes: [],
+      where: baseWhere,
+    }],
+    distinct: true,
+    col: "userId",
+  });
 };
 
 const resolveRouteTarget = async (routeValue) => {
