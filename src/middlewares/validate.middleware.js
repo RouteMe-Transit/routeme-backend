@@ -1,4 +1,4 @@
-const { body } = require("express-validator");
+const { body, query } = require("express-validator");
 
 // ── Shared helpers ────────────────────────────────────────────────────────────
 
@@ -326,6 +326,15 @@ const liveTrackingValidation = {
   ],
 };
 
+const routeFinderValidation = {
+  search: [
+    query("from").trim().notEmpty().withMessage('"from" is required'),
+    query("to").trim().notEmpty().withMessage('"to" is required'),
+    query("date").optional().isISO8601().withMessage("date must be YYYY-MM-DD").bail().isLength({ min: 10, max: 10 }).withMessage("date must be YYYY-MM-DD"),
+    query("time").optional().matches(/^\d{1,2}:\d{2}$/).withMessage("time must be HH:MM"),
+  ],
+};
+
 module.exports = {
   userValidation,
   busValidation,
@@ -338,4 +347,5 @@ module.exports = {
   complaintValidation,
   feedbackValidation,
   liveTrackingValidation,
+  routeFinderValidation,
 };
