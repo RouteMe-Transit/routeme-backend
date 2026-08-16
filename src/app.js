@@ -77,6 +77,8 @@ app.get("/login", (req, res) =>
 
 // API routes
 app.use("/api/v1", routes);
+app.use("/api", routes);
+app.use(routes);
 
 app.get("/", (req, res) => {
   res.send("RouteMe API is running 🚀");
