@@ -2,7 +2,7 @@ const bcrypt = require("bcryptjs");
 const { Op } = require("sequelize");
 const { OTP } = require("../models");
 const userService = require("./user.service");
-const { sendOTPEmail } = require("../utils/mailer");
+const { sendOTPEmail } = require("../utils/Mailer");
 const ApiError = require("../utils/ApiError");
 
 const OTP_TTL_MINUTES = 10;
