@@ -17,6 +17,7 @@ const liveTrackingRoutes = require("./live-tracking.routes");
 const complaintRoutes = require("./complaint.routes");
 const feedbackRoutes  = require("./feedback.routes");
 const reportRoutes    = require("./report.routes");
+const lostFoundRoutes = require("./lost_found.routes");
 
 
 const router = Router();
@@ -38,7 +39,9 @@ router.use("/route-finder", routeFinderRoutes);
 
 router.use("/complaints", complaintRoutes);
 router.use("/feedbacks",  feedbackRoutes);
-router.use("/reports", reportRoutes);
+router.use("/reports",    reportRoutes);
+router.use("/lost-found", lostFoundRoutes);
+router.use("/lost&found", lostFoundRoutes);
 
 // ── Test Route ───────────────────────────────────────────────
 router.get("/test", (req, res) =>

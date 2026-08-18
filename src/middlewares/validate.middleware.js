@@ -335,6 +335,59 @@ const routeFinderValidation = {
   ],
 };
 
+const lostFoundValidation = {
+  create: [
+    body().custom((value, { req }) => {
+      const name = req.body.name || req.body.itemName;
+      if (!name || !name.trim()) {
+        throw new Error("Item name is required");
+      }
+      return true;
+    }),
+    body("busNumber").trim().notEmpty().withMessage("Bus number is required"),
+    body("date").trim().notEmpty().withMessage("Date is required"),
+    body("location").trim().notEmpty().withMessage("Location is required"),
+    body("description").trim().notEmpty().withMessage("Description is required"),
+    body("itemType")
+      .optional()
+      .trim()
+      .toLowerCase()
+      .isIn(["lost", "found"])
+      .withMessage("Item type must be lost or found"),
+    body("status")
+      .optional()
+      .trim()
+      .toLowerCase()
+      .isIn(["open", "resolved", "claimed"])
+      .withMessage("Status must be open, resolved, or claimed"),
+  ],
+  update: [
+    body("busNumber").optional().trim().notEmpty().withMessage("Bus number cannot be empty"),
+    body("date").optional().trim().notEmpty().withMessage("Date cannot be empty"),
+    body("location").optional().trim().notEmpty().withMessage("Location cannot be empty"),
+    body("description").optional().trim().notEmpty().withMessage("Description cannot be empty"),
+    body("itemType")
+      .optional()
+      .trim()
+      .toLowerCase()
+      .isIn(["lost", "found"])
+      .withMessage("Item type must be lost or found"),
+    body("status")
+      .optional()
+      .trim()
+      .toLowerCase()
+      .isIn(["open", "resolved", "claimed"])
+      .withMessage("Status must be open, resolved, or claimed"),
+  ],
+  updateStatus: [
+    body("status")
+      .trim()
+      .toLowerCase()
+      .isIn(["open", "resolved", "claimed"])
+      .withMessage("Status must be open, resolved, or claimed"),
+  ],
+};
+
 module.exports = {
   userValidation,
   busValidation,
@@ -348,4 +401,5 @@ module.exports = {
   feedbackValidation,
   liveTrackingValidation,
   routeFinderValidation,
+  lostFoundValidation,
 };
