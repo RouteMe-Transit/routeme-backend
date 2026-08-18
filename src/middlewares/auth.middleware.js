@@ -26,6 +26,30 @@ const authenticate = async (req, res, next) => {
   }
 };
 
+const optionalAuthenticate = async (req, res, next) => {
+  try {
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+      req.user = null;
+      return next();
+    }
+
+    const token = authHeader.split(" ")[1];
+    const decoded = jwt.verify(token, config.jwt.secret);
+
+    const user = await User.findByPk(decoded.id);
+    if (user && user.isActive) {
+      req.user = user;
+    } else {
+      req.user = null;
+    }
+    next();
+  } catch (err) {
+    req.user = null;
+    next();
+  }
+};
+
 const authorize = (...roles) => {
   return (req, res, next) => {
     if (!roles.includes(req.user.role)) {
@@ -35,4 +59,4 @@ const authorize = (...roles) => {
   };
 };
 
-module.exports = { authenticate, authorize };
+module.exports = { authenticate, optionalAuthenticate, authorize };

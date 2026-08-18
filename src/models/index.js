@@ -14,6 +14,11 @@ const Complaint  = require("./complaint.model");
 const Feedback   = require("./feedback.model");
 const OTP        = require("./otpmodel");
 const Report     = require("./report.model");
+const LostFound  = require("./lost_found.model");
+
+// ── User ↔ LostFound (one-to-many)
+User.hasMany(LostFound, { foreignKey: "userId", as: "lostFoundItems" });
+LostFound.belongsTo(User, { foreignKey: "userId", as: "user" });
 
 // ── User ↔ BusDetails (one-to-one via userId)
 User.hasOne(BusDetails,    { foreignKey: "userId", as: "busDetails" });
@@ -66,7 +71,7 @@ Trip.belongsTo(BusDetails, { foreignKey: "busId", as: "bus" });
 
 // ── Sync DB
 const syncDatabase = async () => {
-  await sequelize.sync({ alter: true });
+  await sequelize.sync();
 
   const legacyUsers = await User.findAll({
     where: { role: "passenger" },
@@ -120,4 +125,5 @@ module.exports = {
   Feedback,
   Report,
   OTP,
+  LostFound,
 };
