@@ -1,25 +1,42 @@
 const { Stop } = require("../models");
 const ApiError = require("../utils/ApiError");
 
-const getAll = async ({ page = 1, limit = 50, search, activeOnly } = {}) => {
+const getAll = async ({ page = 1, limit = 50, search, id, activeOnly } = {}) => {
   const { Op } = require("sequelize");
   const where = {};
+
+  // activeOnly filter (used by StopPickerModal in routes page)
   if (activeOnly === "true") where.isActive = true;
-  if (search) where.stopName = { [Op.like]: `%${search}%` };
+
+  // ID search takes priority over text search
+  if (id) {
+    const parsed = parseInt(id, 10);
+    if (!isNaN(parsed)) where.id = parsed;
+  } else if (search) {
+    where.stopName = { [Op.like]: `%${search}%` };
+  }
 
   const offset = (parseInt(page) - 1) * parseInt(limit);
   const { count, rows } = await Stop.findAndCountAll({
     where,
-    limit: parseInt(limit),
+    limit:  parseInt(limit),
     offset,
-    order: [["createdAt", "ASC"]],
+    order:  [["createdAt", "DESC"]],
   });
+
   return {
-    total: count,
-    page: parseInt(page),
+    total:      count,
+    page:       parseInt(page),
     totalPages: Math.ceil(count / limit),
-    stops: rows,
+    stops:      rows,
   };
+};
+
+const getStats = async () => {
+  const total    = await Stop.count();
+  const active   = await Stop.count({ where: { isActive: true  } });
+  const inactive = await Stop.count({ where: { isActive: false } });
+  return { total, active, inactive };
 };
 
 const getById = async (id) => {
@@ -53,4 +70,4 @@ const toggleActive = async (id) => {
   return stop;
 };
 
-module.exports = { getAll, getById, create, update, toggleActive };
+module.exports = { getAll, getStats, getById, create, update, toggleActive };

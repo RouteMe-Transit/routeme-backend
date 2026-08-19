@@ -15,8 +15,20 @@ const start = async () => {
   try {
     console.log("⏳ Starting server...");
 
-    await sequelize.authenticate();
-    console.log("✅ Database connected successfully");
+    let connected = false;
+    let attempts = 0;
+    while (!connected && attempts < 5) {
+      try {
+        attempts++;
+        await sequelize.authenticate();
+        connected = true;
+        console.log("✅ Database connected successfully");
+      } catch (connErr) {
+        console.warn(`⚠️ Database connection attempt ${attempts}/5 failed (${connErr.message}). Retrying in 3s...`);
+        if (attempts >= 5) throw connErr;
+        await new Promise((r) => setTimeout(r, 3000));
+      }
+    }
 
     await syncDatabase();
     console.log("✅ Database synced");
@@ -33,7 +45,7 @@ const start = async () => {
     const server = http.createServer(app);
     const io = new Server(server, {
       cors: {
-        origin: ["http://localhost:3000", "http://127.0.0.1:3000"],
+        origin: (origin, callback) => callback(null, true),
         credentials: true,
       },
     });

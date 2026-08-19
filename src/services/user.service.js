@@ -1,5 +1,5 @@
 const { Op } = require("sequelize");
-const { Route, User } = require("../models");
+const { Route, User, FavoriteRoute } = require("../models");
 const ApiError = require("../utils/ApiError");
  
 // ── Route helpers ─────────────────────────────────────────────────────────────
@@ -108,14 +108,89 @@ const resolveRoutesFromInputs = async (routes = [], { strict = true } = {}) => {
  
   return uniqueFoundRoutes;
 };
+
+const getFavoriteRouteRows = async (userId) => FavoriteRoute.findAll({
+  where: { userId },
+  include: [{
+    model: Route,
+    as: "route",
+    attributes: ["id", "routeName", "from", "to"],
+  }],
+  order: [["addedAt", "DESC"]],
+});
+
+const migrateLegacyFavoriteRoutes = async (user) => {
+  if (!user || user.role !== "passenger") return [];
+
+  const existingFavorites = await FavoriteRoute.findAll({
+    where: { userId: user.id },
+    attributes: ["routeId"],
+  });
+
+  const legacyRouteIds = coerceRouteIdsArray(user.favoriteRoutes);
+  if (!legacyRouteIds.length) return getFavoriteRouteRows(user.id);
+
+  const existingRouteIdSet = new Set(existingFavorites.map((favorite) => favorite.routeId));
+  const missingRouteIds = legacyRouteIds.filter((routeId) => !existingRouteIdSet.has(routeId));
+
+  if (!missingRouteIds.length) return getFavoriteRouteRows(user.id);
+
+  const now = new Date();
+  await FavoriteRoute.bulkCreate(
+    missingRouteIds.map((routeId) => ({ userId: user.id, routeId, addedAt: now })),
+    { ignoreDuplicates: true }
+  );
+
+  return getFavoriteRouteRows(user.id);
+};
+
+const mapFavoriteRouteResponse = (favoriteRoute) => {
+  const route = favoriteRoute.route || {};
+  return {
+    routeId: favoriteRoute.routeId,
+    routeName: route.routeName || null,
+    from: route.from || null,
+    to: route.to || null,
+    addedAt: favoriteRoute.addedAt,
+  };
+};
  
 // ── CRUD ──────────────────────────────────────────────────────────────────────
  
-const getAllUsers = async ({ page = 1, limit = 10, role } = {}) => {
+const getAllUsers = async ({ page = 1, limit = 10, role, search, id, status } = {}) => {
   const offset = (page - 1) * limit;
   const where  = {};
+
+  // Role filter
   if (role) where.role = role;
- 
+
+  // Status filter
+  if (status === "active")   where.isActive = true;
+  if (status === "inactive") where.isActive = false;
+
+  // ID search takes priority over text search
+  if (id) {
+    const parsed = parseInt(id, 10);
+    if (!isNaN(parsed)) where.id = parsed;
+  } else if (search) {
+    // Split search into parts to match across firstName + lastName
+    const parts = search.trim().split(/\s+/);
+    if (parts.length >= 2) {
+      // e.g. "Hewa Wasam" → match firstName LIKE "Hewa" AND lastName LIKE "Wasam"
+      where[Op.and] = [
+        { firstName: { [Op.like]: `%${parts[0]}%` } },
+        { lastName:  { [Op.like]: `%${parts.slice(1).join(" ")}%` } },
+      ];
+    } else {
+      // Single word → search across firstName, lastName, email
+      where[Op.or] = [
+        { firstName: { [Op.like]: `%${search}%` } },
+        { lastName:  { [Op.like]: `%${search}%` } },
+        { email:     { [Op.like]: `%${search}%` } },
+      ];
+    }
+  }
+
   const { count, rows } = await User.findAndCountAll({
     where,
     limit:  parseInt(limit),
@@ -209,8 +284,8 @@ const getPassengerFavoriteRoutes = async (userId, { search } = {}) => {
     throw new ApiError(403, "Only passengers can access favorite routes");
   }
  
-  const routeIds = coerceRouteIdsArray(user.favoriteRoutes);
-  const routes = await resolveRoutesFromInputs(routeIds, { strict: false });
+  const favoriteRoutes = await migrateLegacyFavoriteRoutes(user);
+  const routes = favoriteRoutes.map(mapFavoriteRouteResponse);
  
   const searchText = `${search || ""}`.trim().toLowerCase();
   const filteredRoutes = searchText
@@ -242,9 +317,22 @@ const addPassengerFavoriteRoute = async (userId, routeId) => {
     throw new ApiError(404, "Route not found");
   }
  
-  const favoriteRoutes = uniqueRouteIds([...coerceRouteIdsArray(user.favoriteRoutes), route.id]);
-  await user.update({ favoriteRoutes });
-  return user;
+  await migrateLegacyFavoriteRoutes(user);
+
+  const [favoriteRoute] = await FavoriteRoute.findOrCreate({
+    where: { userId: user.id, routeId: route.id },
+    defaults: { userId: user.id, routeId: route.id },
+  });
+
+  await favoriteRoute.reload({
+    include: [{
+      model: Route,
+      as: "route",
+      attributes: ["id", "routeName", "from", "to"],
+    }],
+  });
+
+  return mapFavoriteRouteResponse(favoriteRoute);
 };
  
 const removePassengerFavoriteRoute = async (userId, routeId) => {
@@ -263,9 +351,16 @@ const removePassengerFavoriteRoute = async (userId, routeId) => {
     throw new ApiError(404, "Route not found");
   }
  
-  const favoriteRoutes = coerceRouteIdsArray(user.favoriteRoutes).filter((id) => id !== route.id);
-  await user.update({ favoriteRoutes });
-  return user;
+  await migrateLegacyFavoriteRoutes(user);
+
+  await FavoriteRoute.destroy({
+    where: {
+      userId: user.id,
+      routeId: route.id,
+    },
+  });
+
+  return { routeId: route.id };
 };
  
 const deleteUser = async (id) => {
@@ -285,4 +380,3 @@ module.exports = {
   removePassengerFavoriteRoute,
   deleteUser,
 };
- 
